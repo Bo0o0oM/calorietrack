@@ -1,0 +1,39 @@
+# Build outputs
+*.apk
+*.aab
+*.aar
+*.class
+*.dex
+build/
+app/build/
+bin/
+gen/
+out/
+
+# Gradle / Kotlin caches
+.gradle/
+.kotlin/
+
+# Local machine configuration
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Native build artifacts
+.cxx/
+.externalNativeBuild/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Secrets / signing files
+*.jks
+*.keystore
+.env
+.env.*
