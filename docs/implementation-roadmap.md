@@ -42,14 +42,18 @@ This roadmap breaks development into small, incremental, self-contained mileston
 
 ---
 
-## Milestone 4: Food Search Screen
-- **Goal**: Enable instant, offline food searching.
+## Milestone 2C: Offline Food Search Experience (Completed)
+- **Goal**: Enable instant, offline food searching backed by Room.
 - **Tasks**:
-  1. Build the `FoodSearchScreen` composable with a search text field and dynamic results list.
-  2. Implement `searchFoods(query: String)` in `FoodDao` using indexed SQLite `LIKE` queries.
-  3. Connect search results to a `SearchViewModel` exposing real-time search state.
-  4. Add empty-state UI for when a search term has no results.
-- **Verification**: Typing "egg" or "rice" instantly displays matching foods with calorie tags in under 50ms.
+  1. Build `FoodSearchScreen` with top app bar, search input textfield, clear action, and dynamic scrolling list.
+  2. Implement `FoodSearchViewModel` observing `FoodDao.getAll()` on blank query and `FoodDao.searchByName(query)` on input.
+  3. Contextually propagate `mealType` with clean subtitles ("Add to Breakfast", "Add to Snacks").
+  4. Display item names, serving descriptions, calories per 100g, and macro breakdowns.
+  5. Add intentional empty state when no items match the query.
+  6. Fix Dashboard EmptyDayCard clickability, Snacks terminology, and bottom FAB scroll clearance.
+  7. Add `FoodSearchViewModelTest` verifying state transitions.
+- **Verification**: `testDebugUnitTest` and `assembleDebug` pass cleanly; search responds instantaneously without internet.
+
 
 ---
 

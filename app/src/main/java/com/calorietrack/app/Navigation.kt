@@ -26,7 +26,12 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.calorietrack.app.data.local.CalorieTrackDatabase
 import com.calorietrack.app.ui.main.MainScreen
+import com.calorietrack.app.ui.search.FoodSearchScreen
+import com.calorietrack.app.ui.search.FoodSearchViewModel
 
 @Composable
 fun MainNavigation() {
@@ -46,18 +51,21 @@ fun MainNavigation() {
           )
         }
         entry<FoodSearchNavKey> { key ->
-          val targetMeal =
-            if (key.mealType.isNotEmpty()) {
-              "Adding to ${key.mealType.replaceFirstChar { it.uppercase() }}"
-            } else {
-              "Search Offline Catalogue"
-            }
-          PlaceholderScreen(
-            title = "Food Search",
-            subtitle = targetMeal,
-            description =
-              "Offline food search with instant local filtering and custom food creation will be available in upcoming milestones.",
+          val context = LocalContext.current
+          val foodDao = CalorieTrackDatabase.getInstance(context).foodDao()
+          val searchViewModel: FoodSearchViewModel =
+            viewModel(
+              key = "FoodSearchViewModel_${key.mealType}",
+              factory = FoodSearchViewModel.Factory(foodDao, key.mealType),
+            )
+          FoodSearchScreen(
+            mealType = key.mealType,
             onBack = { backStack.removeLastOrNull() },
+            onFoodClick = { foodId ->
+              // Defined placeholder for Milestone 3 (Food Details & Serving Selection)
+            },
+            viewModel = searchViewModel,
+            modifier = Modifier.safeDrawingPadding(),
           )
         }
         entry<HistoryNavKey> {

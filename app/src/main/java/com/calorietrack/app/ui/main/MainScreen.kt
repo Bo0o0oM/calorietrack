@@ -143,7 +143,7 @@ fun DashboardContent(
       }
 
       // Bottom spacing so scrollable content is not obscured by the FAB
-      Spacer(modifier = Modifier.height(72.dp))
+      Spacer(modifier = Modifier.height(88.dp))
     }
   }
 }
@@ -386,7 +386,11 @@ private fun EmptyDayCard(
   modifier: Modifier = Modifier,
 ) {
   OutlinedCard(
-    modifier = modifier.fillMaxWidth(),
+    onClick = onAddFoodClick,
+    modifier =
+      modifier
+        .fillMaxWidth()
+        .semantics { contentDescription = "No foods logged today. Tap to add food." },
     shape = RoundedCornerShape(16.dp),
     colors =
       CardDefaults.outlinedCardColors(
@@ -405,7 +409,7 @@ private fun EmptyDayCard(
       )
       Spacer(modifier = Modifier.height(4.dp))
       Text(
-        text = "Tap '+ Add Food' to record your meals and track your calories.",
+        text = "Tap here or '+ Add Food' to record your meals and track your calories.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,

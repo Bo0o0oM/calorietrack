@@ -1,4 +1,4 @@
-﻿# CalorieTrack â€” Screen Architecture & Navigation Flows
+# CalorieTrack â€” Screen Architecture & Navigation Flows
 
 This document details the user interface architecture for the initial release of CalorieTrack built with **Jetpack Compose** and **AndroidX Navigation**.
 
@@ -54,17 +54,18 @@ flowchart TD
 ---
 
 ### Screen 2: Food Search Screen
-- **Purpose**: Fast, distraction-free searching over the local food catalogue.
+- **Purpose**: Fast, distraction-free searching over the local offline food catalogue backed by Room.
 - **Important Elements**:
-  - **Search Input Field**: Text bar with instant search-as-you-type and clear button (`X`).
-  - **Results List**: Scrollable list of matched foods showing food name, standard serving size (e.g., "100g"), and calories per serving.
-  - **"Food Not Found?" Banner**: A clean card at the bottom: *"Can't find your food? Tap here to add a custom food."*
-  - **Selected Meal Indicator**: Small chip at top indicating target meal (e.g. "Adding to Lunch").
+  - **Top Bar**: Back button, "Add Food" title, and contextual meal indicator subtitle (e.g. "Add to Breakfast", "Add to Snacks").
+  - **Search Input Field**: Text bar with instant search-as-you-type, search icon, keyboard action, and clear button (`X`).
+  - **Results List**: Scrollable `LazyColumn` of matched foods showing food name, typical household serving description, calories per 100g, and macronutrient pills (`P · C · F`).
+  - **Empty State**: Explicit "No foods found" indicator with guidance when search query yields zero matches.
 - **User Actions**:
-  - Typing in the search bar updates results in real time.
-  - Tapping any food row navigates to **Food Details & Serving**.
-  - Tapping **"Add Custom Food"** navigates to **Create Custom Food**.
-  - Tapping Back returns to **Dashboard**.
+  - Typing in the search bar filters the 104-item Room SQLite catalogue in real time via `FoodDao.searchByName(query)`.
+  - Blank search displays the entire offline catalogue via `FoodDao.getAll()`.
+  - Tapping a food item triggers selection (placeholder for Milestone 3 Food Details & Serving Selection).
+  - Tapping Back returns cleanly to **Dashboard**.
+
 
 ---
 
