@@ -1,4 +1,4 @@
-﻿# CalorieTrack â€” Local Database Schema & Calculations
+# CalorieTrack â€” Local Database Schema & Calculations
 
 This document details the SQLite database design implemented using **Android Room**. The schema is optimized for fast offline search, low disk usage, relational integrity, and effortless scaling.
 
@@ -14,14 +14,15 @@ erDiagram
     FOOD {
         int id PK
         string name "Indexed"
-        string serving_unit "e.g. g, cup, piece"
-        float default_serving_amount "e.g. 100.0"
-        float calories_per_serving
-        float protein_per_serving
-        float carbs_per_serving
-        float fat_per_serving
+        string serving_description "e.g. 1 medium (118g)"
+        float serving_grams "e.g. 118.0"
+        float calories_per_100g
+        float protein_per_100g
+        float carbs_per_100g
+        float fat_per_100g
         boolean is_custom
-        long created_at
+        string data_source "e.g. USDA FoodData Central"
+        string source_id "e.g. FDC ID 171688"
     }
 
     MEAL_ENTRY {
@@ -51,23 +52,24 @@ erDiagram
 ## 2. Table Specifications
 
 ### Table 1: `foods` (The Food Catalogue)
-Stores both built-in reference foods and user-created custom foods.
+Stores both built-in reference foods and user-created custom foods. Normalized per 100g for scientific precision.
 
 | Column Name | SQLite Type | Room / Kotlin Type | Nullable | Description |
 | :--- | :--- | :--- | :---: | :--- |
-| `id` | `INTEGER` | `Long` | No | Primary Key (`autoGenerate = true`). |
+| `id` | `INTEGER` | `Long` | No | Primary Key (`autoGenerate = true`). Built-in: 1..999, Custom: >= 1000. |
 | `name` | `TEXT` | `String` | No | Name of the food (e.g., `"Oatmeal"`, `"Chicken Breast"`). Indexed for fast search. |
-| `serving_unit` | `TEXT` | `String` | No | Description of the serving (e.g., `"g"`, `"oz"`, `"cup"`, `"egg"`). |
-| `serving_amount` | `REAL` | `Double` | No | Base quantity per serving (e.g., `100.0` for 100g, `1.0` for 1 egg). |
-| `calories` | `REAL` | `Double` | No | Calories (kcal) contained in the base serving. |
-| `protein` | `REAL` | `Double` | No | Protein in grams per base serving. |
-| `carbs` | `REAL` | `Double` | No | Carbohydrates in grams per base serving. |
-| `fat` | `REAL` | `Double` | No | Fat in grams per base serving. |
+| `serving_description` | `TEXT` | `String` | No | Description of typical household serving (e.g., `"1 medium apple (approx. 182g)"`). |
+| `serving_grams` | `REAL` | `Double` | No | Gram weight of the described serving (e.g., `182.0`). |
+| `calories_per_100g` | `REAL` | `Double` | No | Calories (kcal) contained per 100 grams. |
+| `protein_per_100g` | `REAL` | `Double` | No | Protein in grams per 100 grams. |
+| `carbs_per_100g` | `REAL` | `Double` | No | Carbohydrates in grams per 100 grams. |
+| `fat_per_100g` | `REAL` | `Double` | No | Fat in grams per 100 grams. |
 | `is_custom` | `INTEGER` | `Boolean` | No | `0` = Built-in reference food; `1` = User-created custom food. |
-| `created_at` | `INTEGER` | `Long` | No | Timestamp (milliseconds) when added. |
+| `data_source` | `TEXT` | `String` | No | Source dataset (e.g., `"USDA FoodData Central"`, default value). |
+| `source_id` | `TEXT` | `String?` | Yes | External identifier for provenance (e.g., FDC ID `"171688"`). |
 
 * **Indexes**:
-  - Index on `name` (`CREATE INDEX idx_food_name ON foods(name);`) ensures typing in the search bar responds in milliseconds even with thousands of rows.
+  - Index on `name` (`CREATE INDEX index_foods_name ON foods(name);`) ensures typing in the search bar responds in milliseconds even with thousands of rows.
 
 ---
 
@@ -146,3 +148,33 @@ $$\text{Logged Fat} = \text{Base Food Fat} \times \text{Serving Quantity}$$
 We store the calculated values directly in `meal_entries` (called **denormalization**).
 * **Benefit**: If the user later edits a custom food or if reference nutrition data updates, past historical meal logs are **not altered retroactively**. Your historical record remains permanently true to what you ate that day.
 * **Performance**: Daily summary queries simply execute `SELECT SUM(logged_calories) FROM meal_entries WHERE date = :today`, which runs in microseconds.
+
+---
+
+## 4. Schema Versioning & Prepackaged Database Asset
+
+### Room Schema Version History:
+- **Version 1 (Milestone 2A)**:
+  - Initial foundation schema defining `foods`, `meal_entries`, and `daily_goals`.
+- **Version 2 (Milestone 2B)**:
+  - Added data source provenance to `foods`:
+    - `data_source TEXT NOT NULL DEFAULT 'USDA FoodData Central'`
+    - `source_id TEXT NULLABLE` (e.g. USDA FoodData Central ID).
+  - Migration `Migration1To2` implemented to cleanly alter existing tables without destructive drops:
+    ```sql
+    ALTER TABLE `foods` ADD COLUMN `data_source` TEXT NOT NULL DEFAULT 'USDA FoodData Central';
+    ALTER TABLE `foods` ADD COLUMN `source_id` TEXT;
+    ```
+  - **Upgrade Seeding**: During `Migration1To2`, the 104 built-in catalogue foods from `source/food_catalogue.json` are seeded idempotently into `foods` using `INSERT OR IGNORE`. Existing user custom foods, meal logs, and daily targets are preserved intact.
+  - **Auto-Increment Offset**: `sqlite_sequence` is initialized to at least 999 for `foods`, guaranteeing that user-created custom foods automatically assign IDs starting at 1000.
+  - Schema export enabled (`room.schemaLocation = "$projectDir/schemas"`). Room generates canonical schema JSON with identity hash tracking.
+
+### ID Allocation & Range Reservation:
+- **`1 .. 999`**: Reserved exclusively for built-in offline catalogue foods (`is_custom = 0`, `data_source = 'USDA FoodData Central'`).
+- **`>= 1000`**: Reserved exclusively for user-created custom foods (`is_custom = 1`, `data_source = 'User'`).
+
+### Prepackaged Asset Database:
+- Built-in food catalogue of 104 USDA verified items is bundled into `app/src/main/assets/database/calorietrack.db`.
+- Database builder initializes via `.createFromAsset("database/calorietrack.db")`.
+- **Fresh Install**: Room opens the prepackaged SQLite file directly, pre-populating all baseline foods with zero network requirement.
+- **Existing Install Upgrade**: Room executes `Migration1To2`, adding provenance columns, preserving user data, and populating any missing built-in foods via idempotent batch insert.

@@ -1,4 +1,4 @@
-﻿# CalorieTrack â€” Step-by-Step Implementation Roadmap
+# CalorieTrack â€” Step-by-Step Implementation Roadmap
 
 This roadmap breaks development into small, incremental, self-contained milestones. Each milestone can be coded, tested, verified on GitHub Actions, and test-driven on a physical phone before moving to the next.
 
@@ -15,24 +15,30 @@ This roadmap breaks development into small, incremental, self-contained mileston
 
 ---
 
-## Milestone 2: Room Database & Core Schema
-- **Goal**: Introduce local SQLite persistence to the application.
+## Milestone 2A: Room Database Foundation & Calculations (Completed)
+- **Goal**: Introduce local Room SQLite persistence and exact nutrition math utilities.
 - **Tasks**:
-  1. Add Android Room dependencies to `gradle/libs.versions.toml` and `app/build.gradle.kts`.
-  2. Create the 3 Room entities: `FoodEntity`, `MealEntryEntity`, and `DailyGoalEntity`.
-  3. Create DAOs (`FoodDao`, `MealEntryDao`, `DailyGoalDao`) with basic CRUD queries.
-  4. Create `AppDatabase` class and a singleton repository to access it.
-- **Verification**: Write unit tests verifying that in-memory database inserts and queries return expected data.
+  1. Add Android Room 2.8.5 dependencies and KSP configuration.
+  2. Create Room entities: `FoodEntity`, `MealEntryEntity`, and `DailyGoalEntity`.
+  3. Create DAOs (`FoodDao`, `MealEntryDao`, `DailyGoalDao`) with queries and Flow streams.
+  4. Create `CalorieTrackDatabase` and singleton provider `DatabaseProvider`.
+  5. Create `NutritionCalculator` and comprehensive unit test suite.
+- **Verification**: `testDebugUnitTest` and `assembleDebug` pass cleanly.
 
 ---
 
-## Milestone 3: Seed Initial Food Catalogue
+## Milestone 2B: Offline Food Catalogue Asset (Completed)
 - **Goal**: Bundle the pre-packaged offline food database into the APK.
 - **Tasks**:
-  1. Create a curated list of ~100â€“150 foundational foods (standard USDA reference values for everyday staples).
-  2. Structure the dataset into an embedded SQLite database or asset seed file in `app/src/main/assets/`.
-  3. Configure Room's `createFromAsset()` to pre-populate the database on first run.
-- **Verification**: Database initializes on first app open with 100+ foods pre-populated; unit tests verify food count.
+  1. Curate verified foundational foods (104 items from USDA FoodData Central) with deterministic IDs and 100g normalization.
+  2. Structure dataset into `app/src/main/assets/source/food_catalogue.json`.
+  3. Generate prepackaged SQLite asset `app/src/main/assets/database/calorietrack.db` with matching Room identity hash.
+  4. Update `CalorieTrackDatabase` to version 2 with `Migration1To2` (seeding built-in foods on upgrade) and `.createFromAsset("database/calorietrack.db")`.
+  5. Export database schemas (`room.schemaLocation`) via KSP.
+  6. Create `FoodCatalogueValidationTest` and `Migration1To2Test` ensuring catalogue integrity, upgrade data preservation, and idempotency.
+- **Verification**: `testDebugUnitTest` passes; fresh install and upgrade migration verified.
+
+
 
 ---
 

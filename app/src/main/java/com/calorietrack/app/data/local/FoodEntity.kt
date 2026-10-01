@@ -40,4 +40,17 @@ data class FoodEntity(
 
   @ColumnInfo(name = "is_custom")
   val isCustom: Boolean = false,
-)
+
+  @ColumnInfo(name = "data_source", defaultValue = "USDA FoodData Central")
+  val dataSource: String = "USDA FoodData Central",
+
+  @ColumnInfo(name = "source_id")
+  val sourceId: String? = null,
+) {
+  companion object {
+    const val BUILT_IN_MAX_ID = 999L
+    const val CUSTOM_MIN_ID = 1000L
+    const val SOURCE_USDA = "USDA FoodData Central"
+    const val SOURCE_USER = "User"
+  }
+}

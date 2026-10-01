@@ -1,4 +1,4 @@
-﻿# CalorieTrack â€” Local Food Data Strategy
+# CalorieTrack â€” Local Food Data Strategy
 
 This document details how CalorieTrack manages its offline food catalogue: how foods are packaged, seeded into SQLite, identified, and scaled over time without requiring cloud APIs or schema redesigns.
 
@@ -12,15 +12,16 @@ To guarantee 100% offline functionality on the very first app launch, the initia
 Android Room natively supports database pre-population from an asset file via the `createFromAsset()` API:
 
 ```kotlin
-Room.databaseBuilder(context, AppDatabase::class.java, "calorietrack.db")
-    .createFromAsset("database/initial_foods.db") // or a seed JSON file
+Room.databaseBuilder(context, CalorieTrackDatabase::class.java, "calorietrack.db")
+    .createFromAsset("database/calorietrack.db")
+    .addMigrations(CalorieTrackDatabase.Migration1To2(context))
     .build()
 ```
 
 ### Benefits of Pre-Bundling:
 1. **Zero First-Run Download**: The app doesn't need to ask the user to wait while downloading hundreds of megabytes on first launch.
 2. **Instant Search Readiness**: The moment the app opens, the SQLite search indexes are already compiled and queryable.
-3. **Low Storage Impact**: A compressed initial database of ~150 foundational foods occupies less than **150 KB** in the APK.
+3. **Low Storage Impact**: A compressed initial database of 104 foundational foods occupies only **~60 KB** in the APK assets.
 
 ---
 
@@ -37,28 +38,33 @@ Every food in the database is uniquely identified by an integer Primary Key (`id
 ### Built-in Foods (`is_custom = 0`):
 - Read-only reference foods bundled with the app.
 - Protected from accidental deletion so the baseline catalogue is never corrupted.
-- Sourced from standardized public nutrition datasets.
+- Sourced from standardized public nutrition datasets (USDA FoodData Central).
+- Deterministic IDs assigned sequentially from 1 to 104.
 
 ### Custom Foods (`is_custom = 1`):
 - Created locally by the user when an item is not found in the reference catalogue.
 - Can be freely edited, updated, or deleted by the user at any time.
 - Filterable in search results with a special badge (e.g., *"Custom"* or *"My Food"*).
+- IDs automatically generated starting at 1000 to prevent collisions with built-in foods.
 
 ---
 
 ## 3. Data Source Attribution & Initial V1 Dataset
 
-For the V1 release, we will seed a curated set of **100 to 150 foundational, everyday foods** across common categories:
-- **Proteins**: Eggs, chicken breast, salmon, tofu, Greek yogurt, canned tuna, beef mince.
-- **Carbohydrates & Grains**: White rice, brown rice, rolled oats, whole wheat bread, potatoes, sweet potatoes, pasta.
-- **Fruits & Vegetables**: Bananas, apples, oranges, berries, spinach, broccoli, carrots, onions, tomatoes, avocados.
-- **Dairy & Alternatives**: Whole milk, skim milk, almond milk, cheddar cheese, butter.
-- **Nuts & Oils**: Olive oil, peanut butter, almonds, walnuts.
+For the V1 release (Milestone 2B), we bundled a curated set of **104 foundational, everyday foods** across common categories:
+- **Proteins**: Eggs, chicken breast, salmon, tofu, Greek yogurt, canned tuna, beef mince, turkey breast, pork chop, cottage cheese.
+- **Carbohydrates & Grains**: White rice, brown rice, rolled oats, whole wheat bread, white bread, quinoa, potatoes, sweet potatoes, pasta, corn.
+- **Fruits & Vegetables**: Bananas, apples, oranges, blueberries, strawberries, spinach, broccoli, carrots, onions, tomatoes, avocados, cucumber, bell pepper.
+- **Dairy & Alternatives**: Whole milk, skim milk, almond milk, soy milk, cheddar cheese, mozzarella, butter.
+- **Nuts & Oils**: Olive oil, coconut oil, peanut butter, almonds, walnuts, chia seeds.
+- **Legumes & Snacks**: Black beans, chickpeas, lentils, dark chocolate, hummus, popcorn.
 
 ### Source Attribution
-The nutritional values for built-in foods will be sourced exclusively from public-domain, authoritative nutritional databases:
+The nutritional values for built-in foods are sourced exclusively from public-domain, authoritative nutritional databases:
 - **USDA FoodData Central (FDC)**: Standard reference data compiled by the United States Department of Agriculture (public domain).
-- Built-in foods will be normalized to standard metric units (`100g` base serving) alongside intuitive household units (e.g., *"1 medium (118g)"* for a banana or *"1 large (50g)"* for an egg).
+- Built-in foods are normalized to standard metric units (`100g` base serving) alongside intuitive household units (e.g., *"1 medium (118g)"* for a banana or *"1 large (50g)"* for an egg).
+- Both raw reference data (`app/src/main/assets/source/food_catalogue.json`) and compiled SQLite binary (`app/src/main/assets/database/calorietrack.db`) are tracked in source assets.
+
 
 ---
 
