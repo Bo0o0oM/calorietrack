@@ -52,9 +52,26 @@ class FoodCatalogueValidationTest {
   }
 
   @Test
-  fun foodCatalogue_containsAtLeast100Items() {
-    assertTrue("Catalogue should have at least 100 items, but had ${items.size}", items.size >= 100)
-    assertEquals(104, items.size)
+  fun foodCatalogue_contains500Items() {
+    assertTrue("Catalogue should have at least 500 items, but had ${items.size}", items.size >= 500)
+    assertEquals(500, items.size)
+  }
+
+  @Test
+  fun foodCatalogue_allSearchKeywordsAreNonBlankAndCoverIndianDiet() {
+    items.forEach { item ->
+      assertTrue("Search keywords must not be blank for ID ${item.id}", item.searchKeywords.isNotBlank())
+    }
+
+    // Verify key Indian food terms are indexed
+    val sampleKeywords = listOf(
+      "roti", "paratha", "paneer", "dahi", "chole", "rajma", "dal",
+      "chawal", "bhindi", "aloo", "anda", "kela", "seb", "badam"
+    )
+    for (kw in sampleKeywords) {
+      val matches = items.filter { it.name.contains(kw, ignoreCase = true) || it.searchKeywords.contains(kw, ignoreCase = true) }
+      assertTrue("Expected search keyword '$kw' to match items, but found 0", matches.isNotEmpty())
+    }
   }
 
   @Test

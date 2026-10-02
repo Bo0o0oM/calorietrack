@@ -14,7 +14,7 @@ import java.io.InputStream
     MealEntryEntity::class,
     DailyGoalEntity::class,
   ],
-  version = 2,
+  version = 3,
   exportSchema = true,
 )
 abstract class CalorieTrackDatabase : RoomDatabase() {
@@ -27,7 +27,7 @@ abstract class CalorieTrackDatabase : RoomDatabase() {
    * Room migration from schema version 1 to 2.
    *
    * Adds the data_source and source_id columns to the foods table,
-   * then seeds the 104 built-in catalogue foods idempotently.
+   * then seeds built-in catalogue foods idempotently.
    */
   class Migration1To2(
     private val streamProvider: () -> InputStream
@@ -45,7 +45,34 @@ abstract class CalorieTrackDatabase : RoomDatabase() {
         "ALTER TABLE foods ADD COLUMN source_id TEXT DEFAULT NULL"
       )
       streamProvider().use { stream ->
-        FoodCatalogueSeeder.seedFromStream(db, stream)
+        FoodCatalogueSeeder.seedFromStream(db, stream, hasSearchKeywords = false)
+      }
+    }
+  }
+
+  /**
+   * Room migration from schema version 2 to 3.
+   *
+   * Adds the search_keywords column and index to the foods table,
+   * then updates and seeds the expanded built-in catalogue foods idempotently.
+   */
+  class Migration2To3(
+    private val streamProvider: () -> InputStream
+  ) : Migration(2, 3) {
+
+    constructor(context: Context) : this({
+      context.applicationContext.assets.open("source/food_catalogue.json")
+    })
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+      db.execSQL(
+        "ALTER TABLE foods ADD COLUMN search_keywords TEXT NOT NULL DEFAULT ''"
+      )
+      db.execSQL(
+        "CREATE INDEX IF NOT EXISTS index_foods_search_keywords ON foods (search_keywords)"
+      )
+      streamProvider().use { stream ->
+        FoodCatalogueSeeder.seedFromStream(db, stream, hasSearchKeywords = true)
       }
     }
   }
@@ -57,8 +84,10 @@ abstract class CalorieTrackDatabase : RoomDatabase() {
     private var INSTANCE: CalorieTrackDatabase? = null
 
     fun createMigration1To2(context: Context): Migration = Migration1To2(context)
-
     fun createMigration1To2(streamProvider: () -> InputStream): Migration = Migration1To2(streamProvider)
+
+    fun createMigration2To3(context: Context): Migration = Migration2To3(context)
+    fun createMigration2To3(streamProvider: () -> InputStream): Migration = Migration2To3(streamProvider)
 
     fun getInstance(context: Context): CalorieTrackDatabase {
       return INSTANCE ?: synchronized(this) {
@@ -68,7 +97,10 @@ abstract class CalorieTrackDatabase : RoomDatabase() {
           DATABASE_NAME,
         )
         .createFromAsset("database/calorietrack.db")
-        .addMigrations(Migration1To2(context.applicationContext))
+        .addMigrations(
+          Migration1To2(context.applicationContext),
+          Migration2To3(context.applicationContext),
+        )
         .build().also { INSTANCE = it }
       }
     }

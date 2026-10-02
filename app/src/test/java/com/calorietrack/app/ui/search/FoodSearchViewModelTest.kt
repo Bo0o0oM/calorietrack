@@ -40,6 +40,7 @@ class FoodSearchViewModelTest {
         isCustom = false,
         dataSource = "USDA FoodData Central",
         sourceId = "171688",
+        searchKeywords = "apple, seb, fruit",
       ),
       FoodEntity(
         id = 2L,
@@ -53,6 +54,7 @@ class FoodSearchViewModelTest {
         isCustom = false,
         dataSource = "USDA FoodData Central",
         sourceId = "171077",
+        searchKeywords = "chicken, murgh, poultry, meat",
       ),
       FoodEntity(
         id = 3L,
@@ -66,6 +68,7 @@ class FoodSearchViewModelTest {
         isCustom = false,
         dataSource = "USDA FoodData Central",
         sourceId = "173424",
+        searchKeywords = "egg, anda, boiled egg",
       ),
     )
 
@@ -73,7 +76,9 @@ class FoodSearchViewModelTest {
     override fun getAll(): Flow<List<FoodEntity>> = flowOf(allFoods)
 
     override fun searchByName(query: String): Flow<List<FoodEntity>> {
-      val matches = allFoods.filter { it.name.contains(query, ignoreCase = true) }
+      val matches = allFoods.filter {
+        it.name.contains(query, ignoreCase = true) || it.searchKeywords.contains(query, ignoreCase = true)
+      }
       return flowOf(matches)
     }
 
@@ -185,6 +190,54 @@ class FoodSearchViewModelTest {
     val state = viewModel.uiState.value
     assertEquals("", state.query)
     assertEquals(3, state.results.size)
+  }
+
+  @Test
+  fun searchQuery_withSearchKeyword_matchesFoodsByKeyword() = runTest {
+    val fakeDao = FakeFoodDao(sampleCatalogue)
+    val viewModel = FoodSearchViewModel(fakeDao, mealType = "breakfast")
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+
+    // "seb" is Hindi keyword for Apple
+    viewModel.onQueryChanged("seb")
+    advanceUntilIdle()
+    val state = viewModel.uiState.value
+    assertEquals(1, state.results.size)
+    assertEquals("Apple, raw, with skin", state.results[0].name)
+
+    // "murgh" is Hindi keyword for Chicken
+    viewModel.onQueryChanged("murgh")
+    advanceUntilIdle()
+    assertEquals(1, viewModel.uiState.value.results.size)
+    assertEquals("Chicken Breast, cooked", viewModel.uiState.value.results[0].name)
+
+    // "anda" is Hindi keyword for Egg
+    viewModel.onQueryChanged("anda")
+    advanceUntilIdle()
+    assertEquals(1, viewModel.uiState.value.results.size)
+    assertEquals("Egg, whole, hard-boiled", viewModel.uiState.value.results[0].name)
+  }
+
+  @Test
+  fun searchQuery_rapidSequentialInput_maintainsStateCorrectly() = runTest {
+    val fakeDao = FakeFoodDao(sampleCatalogue)
+    val viewModel = FoodSearchViewModel(fakeDao, mealType = "lunch")
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+
+    // Simulate typing character by character: "e" -> "eg" -> "egg"
+    viewModel.onQueryChanged("e")
+    viewModel.onQueryChanged("eg")
+    viewModel.onQueryChanged("egg")
+    advanceUntilIdle()
+
+    val state = viewModel.uiState.value
+    assertEquals("egg", state.query)
+    assertEquals(1, state.results.size)
+    assertEquals("Egg, whole, hard-boiled", state.results[0].name)
   }
 
   @Test

@@ -54,6 +54,18 @@ This roadmap breaks development into small, incremental, self-contained mileston
   7. Add `FoodSearchViewModelTest` verifying state transitions.
 - **Verification**: `testDebugUnitTest` and `assembleDebug` pass cleanly; search responds instantaneously without internet.
 
+---
+
+## Milestone 2D: Search Input Bug Fix & 500-Item Indian Catalogue Expansion (Completed)
+- **Goal**: Resolve hardware keyboard/IME cursor jumps in search and expand the catalogue to 500 Indian-focused foods with bilingual search.
+- **Tasks**:
+  1. Fix the Compose `OutlinedTextField` IME cursor jumping issue by migrating to `rememberTextFieldState()` / `BasicTextField` with synchronous in-memory text state and reactive query propagation.
+  2. Expand built-in offline catalogue from 104 to 500 items, strongly prioritizing an Indian-focused diet (grains, dals, dairy, vegetables, fruits, nuts, spices, dishes).
+  3. Introduce Room Schema Version 3 with `search_keywords TEXT NOT NULL DEFAULT ''` and SQLite index `index_foods_search_keywords`.
+  4. Implement non-destructive `Migration2To3` with automatic keyword backfilling, new item seeding, and user data preservation.
+  5. Update `FoodDao.searchByName(query)` to query both `name` and `search_keywords` via SQL `LIKE`.
+  6. Add unit tests in `FoodCatalogueValidationTest`, `Migration2To3Test`, and `FoodSearchViewModelTest` verifying 500 items, bilingual search keyword matching, sequential typing, and migration safety.
+- **Verification**: `testDebugUnitTest` (34 tests) and `assembleDebug` pass cleanly; tested with bilingual keywords ("chole", "roti", "dahi", "paneer", "bhindi").
 
 ---
 

@@ -11,7 +11,10 @@ import androidx.room.PrimaryKey
  */
 @Entity(
   tableName = "foods",
-  indices = [Index(value = ["name"])]
+  indices = [
+    Index(value = ["name"]),
+    Index(value = ["search_keywords"]),
+  ]
 )
 data class FoodEntity(
   @PrimaryKey(autoGenerate = true)
@@ -46,7 +49,11 @@ data class FoodEntity(
 
   @ColumnInfo(name = "source_id")
   val sourceId: String? = null,
+
+  @ColumnInfo(name = "search_keywords", defaultValue = "")
+  val searchKeywords: String = "",
 ) {
+
   companion object {
     const val BUILT_IN_MAX_ID = 999L
     const val CUSTOM_MIN_ID = 1000L

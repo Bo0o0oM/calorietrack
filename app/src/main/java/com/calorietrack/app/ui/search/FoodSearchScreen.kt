@@ -16,8 +16,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,16 +30,21 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.VisualTransformation
+
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -127,55 +137,89 @@ fun FoodSearchContent(
     ) {
       Spacer(modifier = Modifier.height(8.dp))
 
-      // Search TextField
-      OutlinedTextField(
-        value = state.query,
-        onValueChange = onQueryChanged,
+      // Search TextField with TextFieldState to preserve cursor, selection, and IME composition
+      val searchTextFieldState = rememberTextFieldState(initialText = state.query)
+
+      LaunchedEffect(searchTextFieldState) {
+        snapshotFlow { searchTextFieldState.text.toString() }
+          .collect { newQuery ->
+            onQueryChanged(newQuery)
+          }
+      }
+
+      val interactionSource = remember { MutableInteractionSource() }
+
+      BasicTextField(
+        state = searchTextFieldState,
         modifier =
           Modifier.fillMaxWidth().semantics {
             contentDescription = "Search foods input field"
           },
-        placeholder = { Text("Search foods") },
-        leadingIcon = {
-          Icon(
-            painter = painterResource(id = R.drawable.ic_search),
-            contentDescription = "Search",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
+        textStyle =
+          MaterialTheme.typography.bodyLarge.copy(
+            color = MaterialTheme.colorScheme.onSurface
+          ),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        lineLimits = TextFieldLineLimits.SingleLine,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        onKeyboardAction = {
+          keyboardController?.hide()
+          focusManager.clearFocus()
         },
-        trailingIcon = {
-          if (state.query.isNotEmpty()) {
-            IconButton(
-              onClick = onClearQuery,
-              modifier =
-                Modifier.semantics {
-                  contentDescription = "Clear search query"
-                },
-            ) {
+        decorator = { innerTextField ->
+          OutlinedTextFieldDefaults.DecorationBox(
+            value = searchTextFieldState.text.toString(),
+            innerTextField = innerTextField,
+            enabled = true,
+            singleLine = true,
+            visualTransformation = VisualTransformation.None,
+            interactionSource = interactionSource,
+            placeholder = { Text("Search foods") },
+            leadingIcon = {
               Icon(
-                painter = painterResource(id = R.drawable.ic_close),
-                contentDescription = "Clear",
+                painter = painterResource(id = R.drawable.ic_search),
+                contentDescription = "Search",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
               )
-            }
-          }
+            },
+            trailingIcon = {
+              if (searchTextFieldState.text.isNotEmpty()) {
+                IconButton(
+                  onClick = {
+                    searchTextFieldState.clearText()
+                    onClearQuery()
+                  },
+                  modifier =
+                    Modifier.semantics {
+                      contentDescription = "Clear search query"
+                    },
+                ) {
+                  Icon(
+                    painter = painterResource(id = R.drawable.ic_close),
+                    contentDescription = "Clear",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                }
+              }
+            },
+            container = {
+              OutlinedTextFieldDefaults.Container(
+                enabled = true,
+                isError = false,
+                interactionSource = interactionSource,
+                colors =
+                  OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                  ),
+                shape = RoundedCornerShape(16.dp),
+              )
+            },
+            contentPadding = OutlinedTextFieldDefaults.contentPadding(),
+          )
         },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions =
-          KeyboardActions(
-            onSearch = {
-              keyboardController?.hide()
-              focusManager.clearFocus()
-            }
-          ),
-        shape = RoundedCornerShape(16.dp),
-        colors =
-          OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-          ),
       )
+
 
       Spacer(modifier = Modifier.height(16.dp))
 

@@ -49,21 +49,36 @@ Every food in the database is uniquely identified by an integer Primary Key (`id
 
 ---
 
-## 3. Data Source Attribution & Initial V1 Dataset
+## 3. Data Source Attribution & Catalogue Evolution
 
-For the V1 release (Milestone 2B), we bundled a curated set of **104 foundational, everyday foods** across common categories:
-- **Proteins**: Eggs, chicken breast, salmon, tofu, Greek yogurt, canned tuna, beef mince, turkey breast, pork chop, cottage cheese.
-- **Carbohydrates & Grains**: White rice, brown rice, rolled oats, whole wheat bread, white bread, quinoa, potatoes, sweet potatoes, pasta, corn.
-- **Fruits & Vegetables**: Bananas, apples, oranges, blueberries, strawberries, spinach, broccoli, carrots, onions, tomatoes, avocados, cucumber, bell pepper.
-- **Dairy & Alternatives**: Whole milk, skim milk, almond milk, soy milk, cheddar cheese, mozzarella, butter.
-- **Nuts & Oils**: Olive oil, coconut oil, peanut butter, almonds, walnuts, chia seeds.
-- **Legumes & Snacks**: Black beans, chickpeas, lentils, dark chocolate, hummus, popcorn.
+### Initial Foundation (Milestone 2B):
+Bundled 104 baseline foods (eggs, oats, chicken breast, milk, rice, etc.).
+
+### Expanded 500-Item Indian-Focused Catalogue (Milestone 2D):
+To make CalorieTrack practical and delightful for real-world daily logging, Milestone 2D expanded the built-in offline catalogue from 104 to **500 curated food items**, strongly prioritizing an **Indian-focused diet**:
+- **Grains, Flours, Breads & Breakfast Staples (45 items)**: Roti/Phulka, Parathas (plain, aloo, gobi, paneer, methi, mooli), Naan, Poori, Bhatura, Kulcha, Missi Roti, Makki ki Roti, Bajra/Jowar/Ragi Roti, Thepla, Idli, Dosa (plain, masala, rava), Uttapam, Upma, Poha, Khichdi, Pongal, Appam, Puttu, Sabudana Khichdi, Besan/Moong Chilla, Dalia, Basmati rice, Jeera rice, Curd rice, Lemon rice.
+- **Dals, Lentils, Pulses, Legumes & Soy (45 items)**: Toor/Arhar Dal, Moong Dal (yellow, split chilka, sabut green), Masoor Dal (red split, whole brown), Urad Dal (split chilka, sabut black, dhuli white), Chana Dal, Bhuna Chana (with & without skin), Sattu, Kabuli Chana/Chole, Kala Chana, Rajma (red, white/cannellini), Lobia/Cowpeas, Moth/Matki, Kulthi/Horse Gram, Green Peas, Safed Vatana, Soya Chunks/Granules, Tofu (firm, silken), Tempeh, Sprouted lentils.
+- **Dairy, Curds, Cheeses & Traditional Milk Delicacies (45 items)**: Buffalo milk, Cow milk (skimmed, toned, double toned), Desi cow ghee, Buffalo ghee, White butter/makhan, Low-fat & Malai Paneer, Chenna, Hung curd/chakka, Sweet & Salted Lassi, Masala Chaas, Condensed/Evaporated milk, Khoya/Mawa, Whole/Skim milk powder, Fresh Malai, Mozzarella, Processed cheese, Shrikhand, Mishti Doi, Kulfi, Rabri, Rasgulla, Gulab Jamun, Rasmalai, Sandesh, Kalakand, Peda, Milk Cake, Paneer Bhurji.
+- **Vegetables, Gourds, Greens & Roots (75 items)**: Bhindi/Okra, Baingan/Eggplant, Baingan Bharta, Lauki/Bottle Gourd, Turai/Ridge Gourd, Karela/Bitter Gourd, Tinda, Parwal, Kundru/Tindora, Arbi/Taro Root, Jimikand/Suran, Drumstick/Moringa pods & leaves, Methi leaves, Sarson Saag, Bathua, Chaulai, Palak/Spinach, Coriander, Mint, Curry leaves, Green chili, Bell peppers (green, red, yellow), Cabbage, Cauliflower, Beetroot, Radish/Mooli, Red Indian winter carrot, Kheera/Cucumber, English Kakdi, Raw mango (Kaccha Aam), Raw banana, Raw jackfruit (Kathal), Lotus stem (Kamal Kakdi), Button/Oyster mushroom, Pumpkin/Kaddu, Ash gourd/Petha, Snake gourd, Sponge gourd/Nenua, Turnip/Shalgam, Knol Khol, French beans, Cluster beans/Gawar, Broad beans/Sem, Onions, Garlic, Ginger, Boiled potatoes.
+- **Fruits & Fresh Produce (45 items)**: Alphonso/Kesar Mango, Guava/Amrood, Papaya/Papita, Pomegranate/Anar, Watermelon/Tarbooj, Muskmelon/Kharbooja, Sweet lime/Mosambi, Orange/Santra, Kinnow, Chiku/Sapodilla, Custard apple/Sitaphal, Jamun/Black plum, Lychee, Pineapple, Amla/Indian gooseberry, Tender coconut water, Coconut meat/copra, Dry coconut/khopra, Robusta & Yelakki bananas, Apple/Seb, Pear/Nashpati, Grapes (green, black), Fresh & Dried figs/Anjeer, Fresh & Dried dates (Medjool, Chhuhara), Plum, Peach, Apricot, Kiwi, Strawberries, Blueberries, Blackberries, Raspberries, Cherries, Mulberry/Shahtoot, Dragonfruit, Passion fruit, Tamarind/Imli, Starfruit, Bel fruit, Ber/Jujube, Rasbhari, Amchur slices.
+- **Nuts, Seeds, Dried Fruits & Healthy Snacks (35 items)**: Almonds (raw, roasted), Walnuts, Cashews (raw, roasted salted), Pistachios (raw, roasted), Raisins (golden, black munakka), Makhana/Foxnuts (raw, roasted in ghee), Chia/Sabja seeds (raw, soaked), Flaxseeds/Alsi, Sesame seeds (white, black til), Pumpkin seeds, Sunflower seeds, Watermelon seeds (magaz), Pine nuts/Chilgoza, Brazil nuts, Hazelnuts, Pecans, Macadamia, Murmura/Puffed rice, Chutney dal, Plain & Methi Khakhra, Poha chivda, Makhana chivda, Diet roasted namkeen, Marie biscuit, Coconut chips.
+- **Spices, Seasonings, Condiments & Cooking Oils (40 items)**: Turmeric/Haldi, Jeera (whole, roasted powder), Dhania powder, Lal mirch powder, Kashmiri chili powder, Garam masala, Chhoti & Badi Elaichi, Cloves/Laung, Dalchini/Cinnamon, Kali mirch (whole, powder), Saunf, Methi dana, Ajwain, Rai & Yellow mustard seeds, Hing, Tej patta, Star anise, Jaiphal, Javitri, Amchur powder, Chaat masala, Sambar powder, Rasam powder, Kitchen King, Biryani masala, Kasuri methi, Mustard oil, Peanut oil, Sesame oil, Coconut oil, Sunflower oil, Soybean oil, Rice bran oil, Jaggery/Gur, Shakkar, Pure honey.
+- **Popular Prepared Indian Dishes, Curries & Rice (40 items)**: Dal Tadka, Dal Makhani, Chole Masala, Rajma Masala, Sambar, Rasam, Kadhi Pakora, Gujarati Kadhi, Palak Paneer, Paneer Butter Masala, Shahi Paneer, Matar Paneer, Kadai Paneer, Aloo Gobi, Aloo Matar, Aloo Palak, Bhindi Masala, Lauki Chana Dal, Mix Veg Curry, Veg Biryani, Veg Pulao, Dal Khichdi, Pav Bhaji, Misal Pav Gravy, Chana Chaat, Bhelpuri, Sev Puri, Pani Puri/Golgappa, Dahi Vada/Bhalla, Veg Samosa, Pakora, Khaman Dhokla, Medu Vada, Masala Omelette, Egg Bhurji, Egg Curry, Chicken Curry, Butter Chicken, Chicken Tikka, Chicken Biryani.
+- **Poultry, Meat, Fish, Traditional Desserts & Drinks (26 items)**: Tandoori Chicken, Chicken Keema, Mutton Curry/Rogan Josh, Mutton Keema, Indian Fish Curry, Fish Fry, Prawn Masala, Katla, Hilsa/Ilish, Pomfret Fry, Crab Masala, Masala Chai, Ginger Tea/Adrak Chai, Filter Coffee, Green Tea, Nimbu Pani/Shikanji, Aam Panna, Badam Milk, Gajar ka Halwa, Moong Dal Halwa, Sooji Halwa/Sheera, Rice Kheer, Besan Ladoo, Kaju Katli, Motichoor Ladoo, Jalebi.
+
+### Bilingual Search Keywords
+To allow frictionless search regardless of whether users search in English or Indian transliteration, every food item includes a comprehensive `search_keywords` field indexed with a SQLite B-Tree index:
+- Example: Searching `"chole"` matches Chickpeas (Cooked), White Chickpeas (Raw), and Chole Masala.
+- Example: Searching `"roti"` or `"chapati"` matches Tawa Roti, Butter Roti, Rumali Roti, and Missi Roti.
+- Example: Searching `"dahi"` matches Plain Curd / Dahi, Greek Yogurt, Curd Rice, Hung Curd, and Sweet Lassi.
+- Example: Searching `"bhindi"` matches Bhindi Raw, Bhindi Sautéed, and Bhindi Masala.
 
 ### Source Attribution
-The nutritional values for built-in foods are sourced exclusively from public-domain, authoritative nutritional databases:
-- **USDA FoodData Central (FDC)**: Standard reference data compiled by the United States Department of Agriculture (public domain).
-- Built-in foods are normalized to standard metric units (`100g` base serving) alongside intuitive household units (e.g., *"1 medium (118g)"* for a banana or *"1 large (50g)"* for an egg).
-- Both raw reference data (`app/src/main/assets/source/food_catalogue.json`) and compiled SQLite binary (`app/src/main/assets/database/calorietrack.db`) are tracked in source assets.
+The nutritional values for all 500 built-in foods are sourced exclusively from public-domain, authoritative nutritional databases:
+- **USDA FoodData Central (FDC)**: Standard Reference Legacy, Foundation Foods, and Survey (FNDDS) food composition datasets.
+- Every built-in item has a verified `source_id` matching its USDA FoodData Central identifier.
+- Normalized to standard metric units (`100g` base serving) alongside intuitive household portion descriptions.
+- Both raw reference JSON (`app/src/main/assets/source/food_catalogue.json`) and compiled SQLite binary (`app/src/main/assets/database/calorietrack.db`) are tracked in assets.
 
 
 ---

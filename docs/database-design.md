@@ -23,6 +23,7 @@ erDiagram
         boolean is_custom
         string data_source "e.g. USDA FoodData Central"
         string source_id "e.g. FDC ID 171688"
+        string search_keywords "Indexed bilingual keywords"
     }
 
     MEAL_ENTRY {
@@ -67,9 +68,11 @@ Stores both built-in reference foods and user-created custom foods. Normalized p
 | `is_custom` | `INTEGER` | `Boolean` | No | `0` = Built-in reference food; `1` = User-created custom food. |
 | `data_source` | `TEXT` | `String` | No | Source dataset (e.g., `"USDA FoodData Central"`, default value). |
 | `source_id` | `TEXT` | `String?` | Yes | External identifier for provenance (e.g., FDC ID `"171688"`). |
+| `search_keywords` | `TEXT` | `String` | No | Comma-separated bilingual search keywords (e.g. `"chole, chana, kabuli chana, garbanzo"`). Indexed for fast search. |
 
 * **Indexes**:
   - Index on `name` (`CREATE INDEX index_foods_name ON foods(name);`) ensures typing in the search bar responds in milliseconds even with thousands of rows.
+  - Index on `search_keywords` (`CREATE INDEX index_foods_search_keywords ON foods(search_keywords);`) provides instant sub-millisecond bilingual lookup across common Hindi, regional, and colloquial food terms.
 
 ---
 
@@ -165,16 +168,25 @@ We store the calculated values directly in `meal_entries` (called **denormalizat
     ALTER TABLE `foods` ADD COLUMN `data_source` TEXT NOT NULL DEFAULT 'USDA FoodData Central';
     ALTER TABLE `foods` ADD COLUMN `source_id` TEXT;
     ```
-  - **Upgrade Seeding**: During `Migration1To2`, the 104 built-in catalogue foods from `source/food_catalogue.json` are seeded idempotently into `foods` using `INSERT OR IGNORE`. Existing user custom foods, meal logs, and daily targets are preserved intact.
+  - **Upgrade Seeding**: During `Migration1To2`, built-in catalogue foods from `source/food_catalogue.json` are seeded idempotently into `foods` using `INSERT OR IGNORE`. Existing user custom foods, meal logs, and daily targets are preserved intact.
   - **Auto-Increment Offset**: `sqlite_sequence` is initialized to at least 999 for `foods`, guaranteeing that user-created custom foods automatically assign IDs starting at 1000.
-  - Schema export enabled (`room.schemaLocation = "$projectDir/schemas"`). Room generates canonical schema JSON with identity hash tracking.
+  - Schema export enabled (`room.schemaLocation = "$projectDir/schemas"`).
+- **Version 3 (Milestone 2D)**:
+  - Added `search_keywords TEXT NOT NULL DEFAULT ''` and index `index_foods_search_keywords` to `foods`:
+    ```sql
+    ALTER TABLE `foods` ADD COLUMN `search_keywords` TEXT NOT NULL DEFAULT '';
+    CREATE INDEX IF NOT EXISTS `index_foods_search_keywords` ON `foods` (`search_keywords`);
+    ```
+  - Room migration `Migration2To3` safely updates existing Version 2 databases: adds the column, creates the index, backfills search keywords on existing items, and seeds newly expanded catalogue items.
+  - Room canonical identity hash: `4824b90c4357dad1a4cf9f43dd68c65e`.
+  - Expanded catalogue to 500 items, strongly prioritizing an Indian-focused diet (grains, dals, dairy, vegetables, fruits, nuts, spices, dishes) with real USDA FDC IDs.
 
 ### ID Allocation & Range Reservation:
 - **`1 .. 999`**: Reserved exclusively for built-in offline catalogue foods (`is_custom = 0`, `data_source = 'USDA FoodData Central'`).
 - **`>= 1000`**: Reserved exclusively for user-created custom foods (`is_custom = 1`, `data_source = 'User'`).
 
 ### Prepackaged Asset Database:
-- Built-in food catalogue of 104 USDA verified items is bundled into `app/src/main/assets/database/calorietrack.db`.
+- Built-in food catalogue of 500 USDA verified items is bundled into `app/src/main/assets/database/calorietrack.db`.
 - Database builder initializes via `.createFromAsset("database/calorietrack.db")`.
 - **Fresh Install**: Room opens the prepackaged SQLite file directly, pre-populating all baseline foods with zero network requirement.
-- **Existing Install Upgrade**: Room executes `Migration1To2`, adding provenance columns, preserving user data, and populating any missing built-in foods via idempotent batch insert.
+- **Existing Install Upgrade (v1 -> v3 or v2 -> v3)**: Room executes migrations in order, preserving user custom foods and meal logs, adding required columns and indices, backfilling keywords, and inserting any new built-in catalogue items via idempotent batch inserts.

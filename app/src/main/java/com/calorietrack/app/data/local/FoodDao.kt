@@ -17,8 +17,14 @@ interface FoodDao {
   @Query("SELECT * FROM foods ORDER BY name COLLATE NOCASE ASC")
   fun getAll(): Flow<List<FoodEntity>>
 
-  @Query("SELECT * FROM foods WHERE name LIKE '%' || :query || '%' ORDER BY name COLLATE NOCASE ASC")
+  @Query("""
+    SELECT * FROM foods
+    WHERE name LIKE '%' || :query || '%'
+       OR search_keywords LIKE '%' || :query || '%'
+    ORDER BY name COLLATE NOCASE ASC
+  """)
   fun searchByName(query: String): Flow<List<FoodEntity>>
+
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insert(food: FoodEntity): Long
