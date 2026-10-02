@@ -116,4 +116,20 @@ class NutritionCalculatorTest {
     assertEquals(6.66, result.carbs, 0.0001)
     assertEquals(1.665, result.fat, 0.0001)
   }
+
+  @Test
+  fun calculate_arbitraryGrams_suchAsThirtySevenGrams_scalesAccurately() {
+    val result = NutritionCalculator.calculate(
+      quantityGrams = 37.0,
+      caloriesPer100g = baseCalories,
+      proteinPer100g = baseProtein,
+      carbsPer100g = baseCarbs,
+      fatPer100g = baseFat,
+    )
+
+    assertEquals(61.05, result.calories, 0.0001)
+    assertEquals(11.47, result.protein, 0.0001)
+    assertEquals(0.0, result.carbs, 0.0001)
+    assertEquals(1.332, result.fat, 0.0001)
+  }
 }

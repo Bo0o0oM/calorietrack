@@ -20,6 +20,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -39,6 +40,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -432,35 +434,90 @@ private fun MealSectionCard(
         containerColor = MaterialTheme.colorScheme.surface
       ),
   ) {
-    Row(
-      modifier =
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-      horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      Column {
-        Text(
-          text = meal.displayName,
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.SemiBold,
-          color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-          text = "${meal.consumedCalories} kcal",
-          style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    Column(modifier = Modifier.fillMaxWidth()) {
+      Row(
+        modifier =
+          Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column {
+          Text(
+            text = meal.displayName,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+          )
+          Spacer(modifier = Modifier.height(2.dp))
+          Text(
+            text = "${meal.consumedCalories} kcal",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+
+        FilledTonalIconButton(
+          onClick = onAddClick,
+          modifier = Modifier.size(48.dp),
+        ) {
+          Icon(
+            painter = painterResource(id = R.drawable.ic_add),
+            contentDescription = "Add food to ${meal.displayName}",
+          )
+        }
       }
 
-      FilledTonalIconButton(
-        onClick = onAddClick,
-        modifier = Modifier.size(48.dp),
-      ) {
-        Icon(
-          painter = painterResource(id = R.drawable.ic_add),
-          contentDescription = "Add food to ${meal.displayName}",
+      if (meal.items.isNotEmpty()) {
+        HorizontalDivider(
+          modifier = Modifier.padding(horizontal = 16.dp),
+          color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         )
+        Column(
+          modifier =
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          meal.items.forEach { item ->
+            val quantityText =
+              if (item.quantityGrams % 1.0 == 0.0) {
+                "${item.quantityGrams.toInt()} g"
+              } else {
+                "%.1f g".format(item.quantityGrams)
+              }
+            Row(
+              modifier =
+                Modifier.fillMaxWidth()
+                  .semantics {
+                    contentDescription =
+                      "${item.name}, $quantityText, ${item.calories} calories"
+                  },
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically,
+            ) {
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text = item.name,
+                  style = MaterialTheme.typography.bodyMedium,
+                  fontWeight = FontWeight.Medium,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                  text = quantityText,
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              Text(
+                text = "${item.calories} kcal",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+              )
+            }
+          }
+        }
       }
     }
   }

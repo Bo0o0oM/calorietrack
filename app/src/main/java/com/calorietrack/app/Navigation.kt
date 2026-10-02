@@ -29,7 +29,10 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.calorietrack.app.data.local.CalorieTrackDatabase
+import com.calorietrack.app.ui.details.FoodDetailsScreen
+import com.calorietrack.app.ui.details.FoodDetailsViewModel
 import com.calorietrack.app.ui.main.MainScreen
+import com.calorietrack.app.ui.main.MainScreenViewModel
 import com.calorietrack.app.ui.search.FoodSearchScreen
 import com.calorietrack.app.ui.search.FoodSearchViewModel
 
@@ -43,10 +46,21 @@ fun MainNavigation() {
     entryProvider =
       entryProvider {
         entry<Main> {
+          val context = LocalContext.current
+          val db = CalorieTrackDatabase.getInstance(context)
+          val mainViewModel: MainScreenViewModel =
+            viewModel(
+              factory =
+                MainScreenViewModel.Factory(
+                  mealEntryDao = db.mealEntryDao(),
+                  dailyGoalDao = db.dailyGoalDao(),
+                ),
+            )
           MainScreen(
             onNavigateToSearch = { meal -> backStack.add(FoodSearchNavKey(meal)) },
             onNavigateToHistory = { backStack.add(HistoryNavKey) },
             onNavigateToSettings = { backStack.add(SettingsNavKey) },
+            viewModel = mainViewModel,
             modifier = Modifier.safeDrawingPadding(),
           )
         }
@@ -62,9 +76,34 @@ fun MainNavigation() {
             mealType = key.mealType,
             onBack = { backStack.removeLastOrNull() },
             onFoodClick = { foodId ->
-              // Defined placeholder for Milestone 3 (Food Details & Serving Selection)
+              backStack.add(FoodDetailsNavKey(foodId = foodId, mealType = key.mealType))
             },
             viewModel = searchViewModel,
+            modifier = Modifier.safeDrawingPadding(),
+          )
+        }
+        entry<FoodDetailsNavKey> { key ->
+          val context = LocalContext.current
+          val db = CalorieTrackDatabase.getInstance(context)
+          val detailsViewModel: FoodDetailsViewModel =
+            viewModel(
+              key = "FoodDetailsViewModel_${key.foodId}_${key.mealType}",
+              factory =
+                FoodDetailsViewModel.Factory(
+                  foodId = key.foodId,
+                  initialMealType = key.mealType,
+                  foodDao = db.foodDao(),
+                  mealEntryDao = db.mealEntryDao(),
+                ),
+            )
+          FoodDetailsScreen(
+            onBack = { backStack.removeLastOrNull() },
+            onMealLogged = {
+              while (backStack.size > 1) {
+                backStack.removeLastOrNull()
+              }
+            },
+            viewModel = detailsViewModel,
             modifier = Modifier.safeDrawingPadding(),
           )
         }

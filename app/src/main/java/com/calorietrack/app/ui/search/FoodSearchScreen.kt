@@ -355,7 +355,7 @@ private fun EmptySearchState(
     Spacer(modifier = Modifier.height(8.dp))
     Text(
       text =
-        "No matching items found for \"${query.trim()}\". The search currently covers the built-in offline catalogue (104 items).",
+        "No matching items found for \"${query.trim()}\". The search currently covers the built-in offline catalogue.",
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       textAlign = TextAlign.Center,

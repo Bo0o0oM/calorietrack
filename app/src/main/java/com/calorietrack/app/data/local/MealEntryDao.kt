@@ -31,7 +31,7 @@ interface MealEntryDao {
 
   @Query(
     """
-    SELECT 
+    SELECT
       COALESCE(SUM(calories), 0.0) AS totalCalories,
       COALESCE(SUM(protein), 0.0) AS totalProtein,
       COALESCE(SUM(carbs), 0.0) AS totalCarbs,
@@ -41,4 +41,38 @@ interface MealEntryDao {
     """
   )
   fun observeDailyTotals(date: String): Flow<DailyNutritionTotals>
+
+  @Query(
+    """
+    SELECT
+      meal_entries.id AS id,
+      meal_entries.date AS date,
+      meal_entries.meal_type AS mealType,
+      meal_entries.food_id AS foodId,
+      meal_entries.quantity_grams AS quantityGrams,
+      meal_entries.calories AS calories,
+      meal_entries.protein AS protein,
+      meal_entries.carbs AS carbs,
+      meal_entries.fat AS fat,
+      COALESCE(foods.name, 'Unknown Food') AS foodName
+    FROM meal_entries
+    LEFT JOIN foods ON meal_entries.food_id = foods.id
+    WHERE meal_entries.date = :date
+    ORDER BY meal_entries.id ASC
+    """
+  )
+  fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>>
 }
+
+data class MealEntryWithFood(
+  val id: Long,
+  val date: String,
+  val mealType: String,
+  val foodId: Long,
+  val quantityGrams: Double,
+  val calories: Double,
+  val protein: Double,
+  val carbs: Double,
+  val fat: Double,
+  val foodName: String,
+)

@@ -69,33 +69,16 @@ This roadmap breaks development into small, incremental, self-contained mileston
 
 ---
 
-## Milestone 5: Food Details & Serving Selection
-- **Goal**: View nutrition information and scale servings.
+## Milestone 2E: Food Details, Quantity Selection & Meal Logging (Completed)
+- **Goal**: Implement the end-to-end flow from search result click to food details, gram-based quantity selection, real-time nutrition calculation, meal logging, and reactive dashboard updates.
 - **Tasks**:
-  1. Build the `FoodDetailScreen` showing food title, base serving, calories, and macros.
-  2. Create the quantity adjustment input (number stepper and text box).
-  3. Implement real-time mathematical scaling: dynamic calories/macros update as the user adjusts the quantity.
-- **Verification**: Changing serving from 1.0 to 2.5 multiplies calories and macros accurately on screen; unit tests verify calculation engine.
-
----
-
-## Milestone 6: Meal Logging & Persistence
-- **Goal**: Save selected foods into the daily log.
-- **Tasks**:
-  1. Add a **"Log Food"** button that creates a `MealEntryEntity` and saves it into Room SQLite.
-  2. Connect navigation to pop back to the Dashboard after logging.
-  3. Support deleting logged items (swipe-to-delete or tap to remove).
-- **Verification**: Logging an item saves it into the local database and persists across app restarts.
-
----
-
-## Milestone 7: Live Daily Calorie & Macro Dashboard
-- **Goal**: Wire the Dashboard to observe real database entries reactively.
-- **Tasks**:
-  1. Replace Dashboard dummy data with reactive Kotlin `Flow` streams from `MealEntryDao`.
-  2. Implement automatic calculation of consumed calories, remaining calories, and macro subtotals.
-  3. Display logged items under their respective meal sections (Breakfast, Lunch, Dinner, Snacks).
-- **Verification**: Logging an item immediately updates the dashboard progress bar without requiring a manual refresh.
+  1. Build `FoodDetailsScreen` displaying food title, serving description, reference values per 100g, destination meal selector, gram quantity input with increment/decrement steppers & quick presets, and calculated nutrition preview cards.
+  2. Implement `FoodDetailsViewModel` utilizing `NutritionCalculator` to dynamically calculate energy and macronutrients, reject zero/negative amounts, and preserve/switch destination `mealType`.
+  3. Log meals directly into Room SQLite as `MealEntryEntity` with current date (`yyyy-MM-dd`), normalized `mealType`, food ID, exact quantity in grams, and calculated nutrition totals.
+  4. Connect `Navigation.kt` with `FoodDetailsNavKey`, wiring food card clicks in `FoodSearchScreen` to navigate to `FoodDetailsScreen`, and popping back to `Main` upon logging.
+  5. Upgrade `MainScreenViewModel` and `MainScreen` to reactively observe `MealEntryDao` and `DailyGoalDao` via Room `Flow`, displaying logged food items under their respective meal cards, updating consumed/remaining calories, macro progress indicators, and empty day cards.
+  6. Add unit tests for 100g, 200g, arbitrary 37g scaling, zero/negative rejection, meal logging persistence, multiple meal entries grouping, and dashboard totals.
+- **Verification**: `testDebugUnitTest` (47 tests) and `assembleDebug` pass cleanly; end-to-end meal logging verified offline without schema changes.
 
 ---
 
