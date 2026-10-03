@@ -52,11 +52,16 @@ data class FoodEntity(
 
   @ColumnInfo(name = "search_keywords", defaultValue = "")
   val searchKeywords: String = "",
+
+  @ColumnInfo(name = "is_active", defaultValue = "1")
+  val isActive: Boolean = true,
 ) {
 
   companion object {
     const val BUILT_IN_MAX_ID = 999L
     const val CUSTOM_MIN_ID = 1000L
+    const val DEFAULT_DATA_SOURCE_BUILT_IN = "USDA FoodData Central"
+    const val DEFAULT_DATA_SOURCE_CUSTOM = "User"
     const val SOURCE_USDA = "USDA FoodData Central"
     const val SOURCE_USER = "User"
   }

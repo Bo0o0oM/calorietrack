@@ -14,17 +14,34 @@ interface FoodDao {
   @Query("SELECT * FROM foods WHERE id = :id LIMIT 1")
   suspend fun getById(id: Long): FoodEntity?
 
-  @Query("SELECT * FROM foods ORDER BY name COLLATE NOCASE ASC")
+  @Query("SELECT * FROM foods WHERE is_active = 1 ORDER BY name COLLATE NOCASE ASC")
   fun getAll(): Flow<List<FoodEntity>>
 
   @Query("""
     SELECT * FROM foods
-    WHERE name LIKE '%' || :query || '%'
-       OR search_keywords LIKE '%' || :query || '%'
+    WHERE is_active = 1
+      AND (
+        name LIKE '%' || :query || '%'
+        OR search_keywords LIKE '%' || :query || '%'
+      )
     ORDER BY name COLLATE NOCASE ASC
   """)
   fun searchByName(query: String): Flow<List<FoodEntity>>
 
+  @Query("SELECT * FROM foods WHERE is_custom = 1 AND is_active = 1 ORDER BY name COLLATE NOCASE ASC")
+  fun getMyFoods(): Flow<List<FoodEntity>>
+
+  @Query("""
+    SELECT * FROM foods
+    WHERE is_custom = 1
+      AND is_active = 1
+      AND (
+        name LIKE '%' || :query || '%'
+        OR search_keywords LIKE '%' || :query || '%'
+      )
+    ORDER BY name COLLATE NOCASE ASC
+  """)
+  fun searchMyFoods(query: String): Flow<List<FoodEntity>>
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insert(food: FoodEntity): Long
@@ -38,6 +55,18 @@ interface FoodDao {
   @Delete
   suspend fun delete(food: FoodEntity)
 
+  @Query("UPDATE foods SET is_active = 0 WHERE id = :id AND is_custom = 1")
+  suspend fun archiveFood(id: Long): Int
+
+  @Query("SELECT MAX(id) FROM foods")
+  suspend fun getMaxId(): Long?
+
   @Query("SELECT COUNT(*) FROM foods")
   suspend fun count(): Int
+
+  @Query("SELECT COUNT(*) FROM foods WHERE is_active = 1")
+  suspend fun countActive(): Int
+
+  @Query("SELECT COUNT(*) FROM foods WHERE is_custom = 1 AND is_active = 1")
+  suspend fun countActiveCustom(): Int
 }

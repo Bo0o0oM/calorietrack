@@ -41,6 +41,8 @@ import com.calorietrack.app.ui.history.HistoricalDayDetailsScreen
 import com.calorietrack.app.ui.history.HistoricalDayDetailsViewModel
 import com.calorietrack.app.ui.history.HistoryScreen
 import com.calorietrack.app.ui.history.HistoryViewModel
+import com.calorietrack.app.ui.custom.CustomFoodScreen
+import com.calorietrack.app.ui.custom.CustomFoodViewModel
 import com.calorietrack.app.ui.settings.SettingsScreen
 import com.calorietrack.app.ui.settings.SettingsViewModel
 
@@ -87,7 +89,40 @@ fun MainNavigation() {
             onFoodClick = { foodId ->
               backStack.add(FoodDetailsNavKey(foodId = foodId, mealType = key.mealType))
             },
+            onNavigateToCreateCustomFood = { initialName ->
+              backStack.add(CustomFoodNavKey(foodId = 0L, mealType = key.mealType, initialName = initialName))
+            },
+            onNavigateToEditCustomFood = { foodId ->
+              backStack.add(CustomFoodNavKey(foodId = foodId, mealType = key.mealType))
+            },
             viewModel = searchViewModel,
+            modifier = Modifier.safeDrawingPadding(),
+          )
+        }
+        entry<CustomFoodNavKey> { key ->
+          val context = LocalContext.current
+          val foodDao = CalorieTrackDatabase.getInstance(context).foodDao()
+          val customFoodViewModel: CustomFoodViewModel =
+            viewModel(
+              key = "CustomFoodViewModel_${key.foodId}_${key.mealType}_${key.initialName}",
+              factory = CustomFoodViewModel.Factory(
+                foodId = key.foodId,
+                mealType = key.mealType,
+                initialName = key.initialName,
+                foodDao = foodDao,
+              ),
+            )
+          CustomFoodScreen(
+            onBack = { backStack.removeLastOrNull() },
+            onFoodSaved = { savedFoodId ->
+              if (key.mealType.isNotBlank()) {
+                backStack.removeLastOrNull()
+                backStack.add(FoodDetailsNavKey(foodId = savedFoodId, mealType = key.mealType))
+              } else {
+                backStack.removeLastOrNull()
+              }
+            },
+            viewModel = customFoodViewModel,
             modifier = Modifier.safeDrawingPadding(),
           )
         }

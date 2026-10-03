@@ -14,7 +14,7 @@ import java.io.InputStream
     MealEntryEntity::class,
     DailyGoalEntity::class,
   ],
-  version = 3,
+  version = 4,
   exportSchema = true,
 )
 abstract class CalorieTrackDatabase : RoomDatabase() {
@@ -77,6 +77,20 @@ abstract class CalorieTrackDatabase : RoomDatabase() {
     }
   }
 
+  /**
+   * Room migration from schema version 3 to 4.
+   *
+   * Adds the is_active column to the foods table to support soft-deletion / archiving
+   * of custom foods while preserving historical meal entry join integrity.
+   */
+  class Migration3To4 : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+      db.execSQL(
+        "ALTER TABLE foods ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+      )
+    }
+  }
+
   companion object {
     private const val DATABASE_NAME = "calorietrack.db"
 
@@ -89,6 +103,8 @@ abstract class CalorieTrackDatabase : RoomDatabase() {
     fun createMigration2To3(context: Context): Migration = Migration2To3(context)
     fun createMigration2To3(streamProvider: () -> InputStream): Migration = Migration2To3(streamProvider)
 
+    fun createMigration3To4(): Migration = Migration3To4()
+
     fun getInstance(context: Context): CalorieTrackDatabase {
       return INSTANCE ?: synchronized(this) {
         INSTANCE ?: Room.databaseBuilder(
@@ -100,6 +116,7 @@ abstract class CalorieTrackDatabase : RoomDatabase() {
         .addMigrations(
           Migration1To2(context.applicationContext),
           Migration2To3(context.applicationContext),
+          Migration3To4(),
         )
         .build().also { INSTANCE = it }
       }

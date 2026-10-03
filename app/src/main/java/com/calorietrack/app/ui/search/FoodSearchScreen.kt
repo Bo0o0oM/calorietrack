@@ -1,6 +1,8 @@
 package com.calorietrack.app.ui.search
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,35 +18,39 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.input.VisualTransformation
-
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -52,6 +58,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,6 +72,8 @@ fun FoodSearchScreen(
   mealType: String,
   onBack: () -> Unit,
   onFoodClick: (foodId: Long) -> Unit = {},
+  onNavigateToCreateCustomFood: (initialName: String) -> Unit = {},
+  onNavigateToEditCustomFood: (foodId: Long) -> Unit = {},
   viewModel: FoodSearchViewModel,
   modifier: Modifier = Modifier,
 ) {
@@ -75,8 +84,12 @@ fun FoodSearchScreen(
     mealType = mealType,
     onQueryChanged = viewModel::onQueryChanged,
     onClearQuery = viewModel::onClearQuery,
+    onTabSelected = viewModel::onTabSelected,
+    onArchiveFood = viewModel::archiveFood,
     onBack = onBack,
     onFoodClick = onFoodClick,
+    onNavigateToCreateCustomFood = onNavigateToCreateCustomFood,
+    onNavigateToEditCustomFood = onNavigateToEditCustomFood,
     modifier = modifier,
   )
 }
@@ -88,13 +101,18 @@ fun FoodSearchContent(
   mealType: String,
   onQueryChanged: (String) -> Unit,
   onClearQuery: () -> Unit,
+  onTabSelected: (FoodSearchTab) -> Unit,
+  onArchiveFood: (Long) -> Unit,
   onBack: () -> Unit,
   onFoodClick: (foodId: Long) -> Unit,
+  onNavigateToCreateCustomFood: (String) -> Unit,
+  onNavigateToEditCustomFood: (Long) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val focusManager = LocalFocusManager.current
   val keyboardController = LocalSoftwareKeyboardController.current
   val subtitle = formatMealContextSubtitle(mealType)
+  var foodToArchive by remember { mutableStateOf<FoodEntity?>(null) }
 
   Scaffold(
     modifier = modifier,
@@ -115,29 +133,43 @@ fun FoodSearchContent(
           }
         },
         navigationIcon = {
-          IconButton(onClick = onBack) {
+          IconButton(
+            onClick = onBack,
+            modifier = Modifier.semantics { contentDescription = "Back to Dashboard" },
+          ) {
             Icon(
               painter = painterResource(id = R.drawable.ic_arrow_back),
-              contentDescription = "Back to Dashboard",
+              contentDescription = "Back",
             )
           }
         },
-        colors =
-          TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background
-          ),
+        actions = {
+          IconButton(
+            onClick = { onNavigateToCreateCustomFood(state.query.trim()) },
+            modifier = Modifier.semantics { contentDescription = "Create custom food" },
+          ) {
+            Icon(
+              painter = painterResource(id = R.drawable.ic_add),
+              contentDescription = "Create custom food",
+              tint = MaterialTheme.colorScheme.primary,
+            )
+          }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+          containerColor = MaterialTheme.colorScheme.background,
+        ),
       )
     },
   ) { innerPadding ->
     Column(
-      modifier =
-        Modifier.fillMaxSize()
-          .padding(innerPadding)
-          .padding(horizontal = 16.dp),
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(innerPadding)
+        .padding(horizontal = 16.dp),
     ) {
       Spacer(modifier = Modifier.height(8.dp))
 
-      // Search TextField with TextFieldState to preserve cursor, selection, and IME composition
+      // Search TextField
       val searchTextFieldState = rememberTextFieldState(initialText = state.query)
 
       LaunchedEffect(searchTextFieldState) {
@@ -151,14 +183,12 @@ fun FoodSearchContent(
 
       BasicTextField(
         state = searchTextFieldState,
-        modifier =
-          Modifier.fillMaxWidth().semantics {
-            contentDescription = "Search foods input field"
-          },
-        textStyle =
-          MaterialTheme.typography.bodyLarge.copy(
-            color = MaterialTheme.colorScheme.onSurface
-          ),
+        modifier = Modifier
+          .fillMaxWidth()
+          .semantics { contentDescription = "Search foods input field" },
+        textStyle = MaterialTheme.typography.bodyLarge.copy(
+          color = MaterialTheme.colorScheme.onSurface,
+        ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         lineLimits = TextFieldLineLimits.SingleLine,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -189,10 +219,7 @@ fun FoodSearchContent(
                     searchTextFieldState.clearText()
                     onClearQuery()
                   },
-                  modifier =
-                    Modifier.semantics {
-                      contentDescription = "Clear search query"
-                    },
+                  modifier = Modifier.semantics { contentDescription = "Clear search query" },
                 ) {
                   Icon(
                     painter = painterResource(id = R.drawable.ic_close),
@@ -207,11 +234,10 @@ fun FoodSearchContent(
                 enabled = true,
                 isError = false,
                 interactionSource = interactionSource,
-                colors =
-                  OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                  ),
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedContainerColor = MaterialTheme.colorScheme.surface,
+                  unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                ),
                 shape = RoundedCornerShape(16.dp),
               )
             },
@@ -220,8 +246,37 @@ fun FoodSearchContent(
         },
       )
 
+      Spacer(modifier = Modifier.height(12.dp))
 
-      Spacer(modifier = Modifier.height(16.dp))
+      // Filter Chips: All Foods vs My Foods
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        FilterChip(
+          selected = state.selectedTab == FoodSearchTab.ALL,
+          onClick = { onTabSelected(FoodSearchTab.ALL) },
+          label = { Text("All Foods") },
+          colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+          ),
+          modifier = Modifier.semantics { contentDescription = "All foods filter chip" },
+        )
+
+        FilterChip(
+          selected = state.selectedTab == FoodSearchTab.MY_FOODS,
+          onClick = { onTabSelected(FoodSearchTab.MY_FOODS) },
+          label = { Text("My Foods") },
+          colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+          ),
+          modifier = Modifier.semantics { contentDescription = "My foods filter chip" },
+        )
+      }
+
+      Spacer(modifier = Modifier.height(12.dp))
 
       // Results / Loading / Empty state
       when {
@@ -239,6 +294,8 @@ fun FoodSearchContent(
         state.isEmptyResult -> {
           EmptySearchState(
             query = state.query,
+            selectedTab = state.selectedTab,
+            onCreateCustomFood = { onNavigateToCreateCustomFood(state.query.trim()) },
             modifier = Modifier.fillMaxSize(),
           )
         }
@@ -252,6 +309,8 @@ fun FoodSearchContent(
               FoodResultCard(
                 food = food,
                 onClick = { onFoodClick(food.id) },
+                onEdit = { onNavigateToEditCustomFood(food.id) },
+                onDelete = { foodToArchive = food },
               )
             }
           }
@@ -259,40 +318,94 @@ fun FoodSearchContent(
       }
     }
   }
+
+  // Confirmation dialog for archiving custom food
+  foodToArchive?.let { food ->
+    AlertDialog(
+      onDismissRequest = { foodToArchive = null },
+      title = { Text("Remove Custom Food?") },
+      text = {
+        Text("Are you sure you want to remove \"${food.name}\" from My Foods? Previous meal logs containing this food will be preserved.")
+      },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            val id = food.id
+            foodToArchive = null
+            onArchiveFood(id)
+          },
+          modifier = Modifier.semantics { contentDescription = "Confirm remove custom food" },
+        ) {
+          Text("Remove", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = { foodToArchive = null },
+          modifier = Modifier.semantics { contentDescription = "Cancel remove custom food" },
+        ) {
+          Text("Cancel")
+        }
+      },
+    )
+  }
 }
 
 @Composable
 fun FoodResultCard(
   food: FoodEntity,
   onClick: () -> Unit,
+  onEdit: () -> Unit = {},
+  onDelete: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   Card(
-    modifier =
-      modifier
-        .fillMaxWidth()
-        .clickable(onClick = onClick)
-        .semantics { contentDescription = "${food.name}, ${food.caloriesPer100g.toInt()} kcal per 100 grams" },
+    modifier = modifier
+      .fillMaxWidth()
+      .clickable(onClick = onClick)
+      .semantics { contentDescription = "${food.name}, ${food.caloriesPer100g.toInt()} kcal per 100 grams" },
     shape = RoundedCornerShape(14.dp),
-    colors =
-      CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surface
-      ),
+    colors = CardDefaults.cardColors(
+      containerColor = MaterialTheme.colorScheme.surface,
+    ),
   ) {
     Row(
-      modifier = Modifier.fillMaxWidth().padding(16.dp),
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(16.dp),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Column(modifier = Modifier.weight(1f)) {
-        Text(
-          text = food.name,
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.SemiBold,
-          color = MaterialTheme.colorScheme.onSurface,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Text(
+            text = food.name,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+          )
+          if (food.isCustom) {
+            Box(
+              modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.tertiaryContainer)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+              Text(
+                text = "My Food",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+              )
+            }
+          }
+        }
         Spacer(modifier = Modifier.height(3.dp))
         Text(
           text = food.servingDescription,
@@ -301,29 +414,61 @@ fun FoodResultCard(
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-          text =
-            "P %.1fg  ·  C %.1fg  ·  F %.1fg"
-              .format(food.proteinPer100g, food.carbsPer100g, food.fatPer100g),
+          text = "P %.1fg  ·  C %.1fg  ·  F %.1fg".format(food.proteinPer100g, food.carbsPer100g, food.fatPer100g),
           style = MaterialTheme.typography.labelSmall,
           fontWeight = FontWeight.Medium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
 
-      Spacer(modifier = Modifier.width(12.dp))
+      Spacer(modifier = Modifier.width(8.dp))
 
-      Column(horizontalAlignment = Alignment.End) {
-        Text(
-          text = "${food.caloriesPer100g.toInt()}",
-          fontSize = 20.sp,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-          text = "kcal / 100g",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(horizontalAlignment = Alignment.End) {
+          Text(
+            text = "${food.caloriesPer100g.toInt()}",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+          )
+          Text(
+            text = "kcal / 100g",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+
+        if (food.isCustom) {
+          Spacer(modifier = Modifier.width(4.dp))
+          IconButton(
+            onClick = onEdit,
+            modifier = Modifier
+              .size(36.dp)
+              .semantics { contentDescription = "Edit ${food.name}" },
+          ) {
+            Icon(
+              painter = painterResource(id = R.drawable.ic_edit),
+              contentDescription = "Edit",
+              modifier = Modifier.size(18.dp),
+              tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          IconButton(
+            onClick = onDelete,
+            modifier = Modifier
+              .size(36.dp)
+              .semantics { contentDescription = "Remove ${food.name}" },
+          ) {
+            Icon(
+              painter = painterResource(id = R.drawable.ic_delete),
+              contentDescription = "Delete",
+              modifier = Modifier.size(18.dp),
+              tint = MaterialTheme.colorScheme.error,
+            )
+          }
+        }
       }
     }
   }
@@ -332,8 +477,25 @@ fun FoodResultCard(
 @Composable
 private fun EmptySearchState(
   query: String,
+  selectedTab: FoodSearchTab,
+  onCreateCustomFood: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val isMyFoods = selectedTab == FoodSearchTab.MY_FOODS
+  val isQueryBlank = query.trim().isBlank()
+
+  val title = when {
+    isMyFoods && isQueryBlank -> "No custom foods yet"
+    isMyFoods -> "No custom foods found"
+    else -> "No foods found"
+  }
+
+  val description = when {
+    isMyFoods && isQueryBlank -> "You haven't created any custom foods yet. Tap below to create your own food."
+    isMyFoods -> "No custom foods matching \"${query.trim()}\"."
+    else -> "No matching items found for \"${query.trim()}\". You can add it as a custom food."
+  }
+
   Column(
     modifier = modifier.padding(24.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
@@ -347,18 +509,31 @@ private fun EmptySearchState(
     )
     Spacer(modifier = Modifier.height(16.dp))
     Text(
-      text = "No foods found",
+      text = title,
       style = MaterialTheme.typography.titleMedium,
       fontWeight = FontWeight.Bold,
       color = MaterialTheme.colorScheme.onSurface,
     )
     Spacer(modifier = Modifier.height(8.dp))
     Text(
-      text =
-        "No matching items found for \"${query.trim()}\". The search currently covers the built-in offline catalogue.",
+      text = description,
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       textAlign = TextAlign.Center,
     )
+    Spacer(modifier = Modifier.height(20.dp))
+    Button(
+      onClick = onCreateCustomFood,
+      shape = RoundedCornerShape(12.dp),
+      modifier = Modifier.semantics { contentDescription = "Create Custom Food button" },
+    ) {
+      Icon(
+        painter = painterResource(id = R.drawable.ic_add),
+        contentDescription = null,
+        modifier = Modifier.size(18.dp),
+      )
+      Spacer(modifier = Modifier.width(8.dp))
+      Text("Create Custom Food")
+    }
   }
 }

@@ -457,13 +457,19 @@ class FoodDetailsViewModelTest {
 
 class FakeFoodDao(private val foods: List<FoodEntity>) : FoodDao {
   override suspend fun getById(id: Long): FoodEntity? = foods.find { it.id == id }
-  override fun getAll(): Flow<List<FoodEntity>> = flowOf(foods)
-  override fun searchByName(query: String): Flow<List<FoodEntity>> = flowOf(foods.filter { it.name.contains(query, ignoreCase = true) })
+  override fun getAll(): Flow<List<FoodEntity>> = flowOf(foods.filter { it.isActive })
+  override fun searchByName(query: String): Flow<List<FoodEntity>> = flowOf(foods.filter { it.isActive && it.name.contains(query, ignoreCase = true) })
+  override fun getMyFoods(): Flow<List<FoodEntity>> = flowOf(foods.filter { it.isCustom && it.isActive })
+  override fun searchMyFoods(query: String): Flow<List<FoodEntity>> = flowOf(foods.filter { it.isCustom && it.isActive && (it.name.contains(query, ignoreCase = true) || it.searchKeywords.contains(query, ignoreCase = true)) })
   override suspend fun insert(food: FoodEntity): Long = food.id
   override suspend fun insertAll(foods: List<FoodEntity>) {}
   override suspend fun update(food: FoodEntity) {}
   override suspend fun delete(food: FoodEntity) {}
+  override suspend fun archiveFood(id: Long): Int = 1
+  override suspend fun getMaxId(): Long? = foods.maxOfOrNull { it.id }
   override suspend fun count(): Int = foods.size
+  override suspend fun countActive(): Int = foods.count { it.isActive }
+  override suspend fun countActiveCustom(): Int = foods.count { it.isCustom && it.isActive }
 }
 
 class FakeMealEntryDao : MealEntryDao {

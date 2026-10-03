@@ -23,3 +23,6 @@ import kotlinx.serialization.Serializable
 
 /** Settings screen destination */
 @Serializable data object SettingsNavKey : NavKey
+
+/** Custom Food creation and editing screen destination */
+@Serializable data class CustomFoodNavKey(val foodId: Long = 0L, val mealType: String = "", val initialName: String = "") : NavKey

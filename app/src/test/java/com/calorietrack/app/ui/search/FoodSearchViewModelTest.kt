@@ -7,6 +7,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -72,22 +73,67 @@ class FoodSearchViewModelTest {
       ),
     )
 
-  private class FakeFoodDao(private val allFoods: List<FoodEntity>) : FoodDao {
-    override fun getAll(): Flow<List<FoodEntity>> = flowOf(allFoods)
+  private class FakeFoodDao(initialFoods: List<FoodEntity>) : FoodDao {
+    private val allFoods = initialFoods.toMutableList()
+    private val flow = kotlinx.coroutines.flow.MutableStateFlow<List<FoodEntity>>(allFoods.toList())
 
-    override fun searchByName(query: String): Flow<List<FoodEntity>> {
-      val matches = allFoods.filter {
-        it.name.contains(query, ignoreCase = true) || it.searchKeywords.contains(query, ignoreCase = true)
+    override fun getAll(): Flow<List<FoodEntity>> =
+      flow.map { list -> list.filter { it.isActive } }
+
+    override fun searchByName(query: String): Flow<List<FoodEntity>> =
+      flow.map { list ->
+        list.filter {
+          it.isActive && (it.name.contains(query, ignoreCase = true) || it.searchKeywords.contains(query, ignoreCase = true))
+        }
       }
-      return flowOf(matches)
-    }
+
+    override fun getMyFoods(): Flow<List<FoodEntity>> =
+      flow.map { list -> list.filter { it.isCustom && it.isActive } }
+
+    override fun searchMyFoods(query: String): Flow<List<FoodEntity>> =
+      flow.map { list ->
+        list.filter {
+          it.isCustom && it.isActive && (it.name.contains(query, ignoreCase = true) || it.searchKeywords.contains(query, ignoreCase = true))
+        }
+      }
 
     override suspend fun getById(id: Long): FoodEntity? = allFoods.find { it.id == id }
-    override suspend fun insert(food: FoodEntity): Long = food.id
-    override suspend fun insertAll(foods: List<FoodEntity>) {}
-    override suspend fun update(food: FoodEntity) {}
-    override suspend fun delete(food: FoodEntity) {}
+
+    override suspend fun insert(food: FoodEntity): Long {
+      allFoods.removeAll { it.id == food.id }
+      allFoods.add(food)
+      flow.value = allFoods.toList()
+      return food.id
+    }
+
+    override suspend fun insertAll(foods: List<FoodEntity>) {
+      foods.forEach { insert(it) }
+    }
+
+    override suspend fun update(food: FoodEntity) {
+      insert(food)
+    }
+
+    override suspend fun delete(food: FoodEntity) {
+      allFoods.removeAll { it.id == food.id }
+      flow.value = allFoods.toList()
+    }
+
+    override suspend fun archiveFood(id: Long): Int {
+      val index = allFoods.indexOfFirst { it.id == id && it.isCustom }
+      return if (index >= 0) {
+        allFoods[index] = allFoods[index].copy(isActive = false)
+        flow.value = allFoods.toList()
+        1
+      } else {
+        0
+      }
+    }
+
+    override suspend fun getMaxId(): Long? = allFoods.maxOfOrNull { it.id }
     override suspend fun count(): Int = allFoods.size
+    override suspend fun countActive(): Int = allFoods.count { it.isActive }
+    override suspend fun countActiveCustom(): Int = allFoods.count { it.isCustom && it.isActive }
   }
 
   @Before
@@ -248,5 +294,122 @@ class FoodSearchViewModelTest {
     assertEquals("Add to Snacks", formatMealContextSubtitle("snack"))
     assertEquals("Add to Snacks", formatMealContextSubtitle("snacks"))
     assertEquals("Offline Food Catalogue", formatMealContextSubtitle(""))
+  }
+
+  @Test
+  fun tabSelection_switchesBetweenAllAndMyFoods() = runTest {
+    val customFood = FoodEntity(
+      id = 1000L,
+      name = "Homemade Paneer",
+      servingDescription = "100 g",
+      servingGrams = 100.0,
+      caloriesPer100g = 265.0,
+      proteinPer100g = 18.0,
+      carbsPer100g = 6.0,
+      fatPer100g = 20.0,
+      isCustom = true,
+      dataSource = "User",
+      searchKeywords = "paneer, cottage cheese",
+    )
+    val fakeDao = FakeFoodDao(sampleCatalogue + customFood)
+    val viewModel = FoodSearchViewModel(fakeDao, mealType = "lunch")
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+
+    advanceUntilIdle()
+    // Default tab is ALL: 3 built-in + 1 custom = 4 foods
+    assertEquals(FoodSearchTab.ALL, viewModel.uiState.value.selectedTab)
+    assertEquals(4, viewModel.uiState.value.results.size)
+
+    // Switch to MY_FOODS
+    viewModel.onTabSelected(FoodSearchTab.MY_FOODS)
+    advanceUntilIdle()
+
+    assertEquals(FoodSearchTab.MY_FOODS, viewModel.uiState.value.selectedTab)
+    assertEquals(1, viewModel.uiState.value.results.size)
+    assertEquals("Homemade Paneer", viewModel.uiState.value.results[0].name)
+    assertTrue(viewModel.uiState.value.results[0].isCustom)
+  }
+
+  @Test
+  fun searchQuery_withinMyFoods_filtersOnlyCustomFoods() = runTest {
+    val custom1 = FoodEntity(
+      id = 1000L,
+      name = "Homemade Paneer",
+      servingDescription = "100 g",
+      servingGrams = 100.0,
+      caloriesPer100g = 265.0,
+      proteinPer100g = 18.0,
+      carbsPer100g = 6.0,
+      fatPer100g = 20.0,
+      isCustom = true,
+      dataSource = "User",
+      searchKeywords = "paneer, cottage cheese",
+    )
+    val custom2 = FoodEntity(
+      id = 1001L,
+      name = "Protein Oats Shake",
+      servingDescription = "1 glass (300g)",
+      servingGrams = 300.0,
+      caloriesPer100g = 110.0,
+      proteinPer100g = 10.0,
+      carbsPer100g = 12.0,
+      fatPer100g = 2.0,
+      isCustom = true,
+      dataSource = "User",
+      searchKeywords = "shake, smoothie",
+    )
+    val fakeDao = FakeFoodDao(sampleCatalogue + listOf(custom1, custom2))
+    val viewModel = FoodSearchViewModel(fakeDao, mealType = "dinner")
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+
+    viewModel.onTabSelected(FoodSearchTab.MY_FOODS)
+    advanceUntilIdle()
+    assertEquals(2, viewModel.uiState.value.results.size)
+
+    viewModel.onQueryChanged("paneer")
+    advanceUntilIdle()
+    assertEquals(1, viewModel.uiState.value.results.size)
+    assertEquals("Homemade Paneer", viewModel.uiState.value.results[0].name)
+
+    // Searching for built-in food name while in My Foods yields 0
+    viewModel.onQueryChanged("apple")
+    advanceUntilIdle()
+    assertEquals(0, viewModel.uiState.value.results.size)
+    assertTrue(viewModel.uiState.value.isEmptyResult)
+  }
+
+  @Test
+  fun archiveFood_removesCustomFoodFromActiveResults() = runTest {
+    val custom = FoodEntity(
+      id = 1000L,
+      name = "Homemade Paneer",
+      servingDescription = "100 g",
+      servingGrams = 100.0,
+      caloriesPer100g = 265.0,
+      proteinPer100g = 18.0,
+      carbsPer100g = 6.0,
+      fatPer100g = 20.0,
+      isCustom = true,
+      dataSource = "User",
+    )
+    val fakeDao = FakeFoodDao(sampleCatalogue + custom)
+    val viewModel = FoodSearchViewModel(fakeDao, mealType = "lunch")
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+
+    viewModel.onTabSelected(FoodSearchTab.MY_FOODS)
+    advanceUntilIdle()
+    assertEquals(1, viewModel.uiState.value.results.size)
+
+    viewModel.archiveFood(1000L)
+    advanceUntilIdle()
+
+    assertEquals(0, viewModel.uiState.value.results.size)
+    assertTrue(viewModel.uiState.value.isEmptyResult)
   }
 }
