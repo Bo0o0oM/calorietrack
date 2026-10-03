@@ -33,6 +33,22 @@ class MainScreenViewModelTest {
 
   private val testDispatcher = StandardTestDispatcher()
 
+  private open class FakeMealEntryDao : MealEntryDao {
+    override fun getEntriesForDate(date: String): Flow<List<MealEntryEntity>> = flowOf(emptyList())
+    override fun getEntriesForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryEntity>> = flowOf(emptyList())
+    override suspend fun insert(entry: MealEntryEntity): Long = 1L
+    override suspend fun update(entry: MealEntryEntity) {}
+    override suspend fun delete(entry: MealEntryEntity) {}
+    override suspend fun deleteForDate(date: String) {}
+    override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> =
+      flowOf(DailyNutritionTotals(0.0, 0.0, 0.0, 0.0))
+    override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> = flowOf(emptyList())
+    override suspend fun getEntryById(id: Long): MealEntryEntity? = null
+    override suspend fun deleteById(id: Long) {}
+    override fun getEntriesWithFoodForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryWithFood>> =
+      flowOf(emptyList())
+  }
+
   @Before
   fun setUp() {
     Dispatchers.setMain(testDispatcher)
@@ -167,13 +183,7 @@ class MainScreenViewModelTest {
       totalFat = 6.9 + 5.3 + 5.4,           // 17.6
     )
 
-    val fakeDao = object : MealEntryDao {
-      override fun getEntriesForDate(date: String): Flow<List<MealEntryEntity>> = flowOf(emptyList())
-      override fun getEntriesForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryEntity>> = flowOf(emptyList())
-      override suspend fun insert(entry: MealEntryEntity): Long = 1L
-      override suspend fun update(entry: MealEntryEntity) {}
-      override suspend fun delete(entry: MealEntryEntity) {}
-      override suspend fun deleteForDate(date: String) {}
+    val fakeDao = object : FakeMealEntryDao() {
       override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> = flowOf(fakeTotals)
       override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> = flowOf(fakeEntries)
     }
@@ -239,17 +249,7 @@ class MainScreenViewModelTest {
       fatGoal = 80.0,
     )
 
-    val fakeEntryDao = object : MealEntryDao {
-      override fun getEntriesForDate(date: String): Flow<List<MealEntryEntity>> = flowOf(emptyList())
-      override fun getEntriesForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryEntity>> = flowOf(emptyList())
-      override suspend fun insert(entry: MealEntryEntity): Long = 1L
-      override suspend fun update(entry: MealEntryEntity) {}
-      override suspend fun delete(entry: MealEntryEntity) {}
-      override suspend fun deleteForDate(date: String) {}
-      override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> =
-        flowOf(DailyNutritionTotals(0.0, 0.0, 0.0, 0.0))
-      override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> = flowOf(emptyList())
-    }
+    val fakeEntryDao = FakeMealEntryDao()
 
     val fakeGoalDao = object : DailyGoalDao {
       override suspend fun getForDate(date: String): DailyGoalEntity? = customGoal
@@ -277,5 +277,146 @@ class MainScreenViewModelTest {
     assertEquals(180, state.protein.target)
     assertEquals(280, state.carbs.target)
     assertEquals(80, state.fat.target)
+  }
+
+  @Test
+  fun uiState_updatesDynamically_whenMealEntryIsEdited() = runTest {
+    val fixedDate = LocalDate.of(2026, 10, 2)
+    val todayIso = "2026-10-02"
+
+    val initialEntry = MealEntryWithFood(
+      id = 1L,
+      date = todayIso,
+      mealType = "breakfast",
+      foodId = 10L,
+      quantityGrams = 100.0,
+      calories = 389.0,
+      protein = 16.9,
+      carbs = 66.3,
+      fat = 6.9,
+      foodName = "Rolled Oats",
+    )
+    val initialTotals = DailyNutritionTotals(389.0, 16.9, 66.3, 6.9)
+
+    val totalsFlow = kotlinx.coroutines.flow.MutableStateFlow(initialTotals)
+    val entriesFlow = kotlinx.coroutines.flow.MutableStateFlow(listOf(initialEntry))
+
+    val fakeDao = object : FakeMealEntryDao() {
+      override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> = totalsFlow
+      override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> = entriesFlow
+    }
+
+    val viewModel = MainScreenViewModel(
+      mealEntryDao = fakeDao,
+      dateProvider = { fixedDate },
+    )
+
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+    advanceUntilIdle()
+
+    assertEquals(389, viewModel.uiState.value.consumedCalories)
+    val initialBreakfast = viewModel.uiState.value.meals.first { it.key == "breakfast" }
+    assertEquals(389, initialBreakfast.consumedCalories)
+    assertEquals(100.0, initialBreakfast.items[0].quantityGrams)
+
+    // Simulate editing quantity from 100g to 200g
+    val editedEntry = initialEntry.copy(
+      quantityGrams = 200.0,
+      calories = 778.0,
+      protein = 33.8,
+      carbs = 132.6,
+      fat = 13.8,
+    )
+    totalsFlow.value = DailyNutritionTotals(778.0, 33.8, 132.6, 13.8)
+    entriesFlow.value = listOf(editedEntry)
+    advanceUntilIdle()
+
+    val updatedState = viewModel.uiState.value
+    assertEquals(778, updatedState.consumedCalories)
+    val updatedBreakfast = updatedState.meals.first { it.key == "breakfast" }
+    assertEquals(778, updatedBreakfast.consumedCalories)
+    assertEquals(200.0, updatedBreakfast.items[0].quantityGrams)
+    assertEquals(34, updatedState.protein.consumed)
+    assertEquals(133, updatedState.carbs.consumed)
+    assertEquals(14, updatedState.fat.consumed)
+  }
+
+  @Test
+  fun uiState_updatesDynamically_whenMealEntryIsDeleted_andReturnsToZeroWhenAllDeleted() = runTest {
+    val fixedDate = LocalDate.of(2026, 10, 2)
+    val todayIso = "2026-10-02"
+
+    val entry1 = MealEntryWithFood(
+      id = 1L,
+      date = todayIso,
+      mealType = "lunch",
+      foodId = 10L,
+      quantityGrams = 100.0,
+      calories = 200.0,
+      protein = 20.0,
+      carbs = 10.0,
+      fat = 5.0,
+      foodName = "Grilled Chicken",
+    )
+    val entry2 = MealEntryWithFood(
+      id = 2L,
+      date = todayIso,
+      mealType = "lunch",
+      foodId = 20L,
+      quantityGrams = 50.0,
+      calories = 100.0,
+      protein = 2.0,
+      carbs = 20.0,
+      fat = 1.0,
+      foodName = "Rice",
+    )
+
+    val totalsFlow = kotlinx.coroutines.flow.MutableStateFlow(DailyNutritionTotals(300.0, 22.0, 30.0, 6.0))
+    val entriesFlow = kotlinx.coroutines.flow.MutableStateFlow(listOf(entry1, entry2))
+
+    val fakeDao = object : FakeMealEntryDao() {
+      override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> = totalsFlow
+      override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> = entriesFlow
+    }
+
+    val viewModel = MainScreenViewModel(
+      mealEntryDao = fakeDao,
+      dateProvider = { fixedDate },
+    )
+
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+    advanceUntilIdle()
+
+    assertEquals(300, viewModel.uiState.value.consumedCalories)
+    val lunch = viewModel.uiState.value.meals.first { it.key == "lunch" }
+    assertEquals(2, lunch.items.size)
+    assertEquals(300, lunch.consumedCalories)
+    assertFalse(viewModel.uiState.value.isEmptyDay)
+
+    // Delete one entry
+    totalsFlow.value = DailyNutritionTotals(200.0, 20.0, 10.0, 5.0)
+    entriesFlow.value = listOf(entry1)
+    advanceUntilIdle()
+
+    assertEquals(200, viewModel.uiState.value.consumedCalories)
+    val lunchAfterOneDelete = viewModel.uiState.value.meals.first { it.key == "lunch" }
+    assertEquals(1, lunchAfterOneDelete.items.size)
+    assertEquals(200, lunchAfterOneDelete.consumedCalories)
+
+    // Delete remaining entry (final food deleted)
+    totalsFlow.value = DailyNutritionTotals(0.0, 0.0, 0.0, 0.0)
+    entriesFlow.value = emptyList()
+    advanceUntilIdle()
+
+    val emptyState = viewModel.uiState.value
+    assertEquals(0, emptyState.consumedCalories)
+    val lunchAfterFinalDelete = emptyState.meals.first { it.key == "lunch" }
+    assertEquals(0, lunchAfterFinalDelete.items.size)
+    assertEquals(0, lunchAfterFinalDelete.consumedCalories)
+    assertTrue(emptyState.isEmptyDay)
   }
 }

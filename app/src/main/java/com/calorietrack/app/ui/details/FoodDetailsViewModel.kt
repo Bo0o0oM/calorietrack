@@ -61,17 +61,20 @@ data class FoodDetailsUiState(
   val isSaving: Boolean = false,
   val isSaved: Boolean = false,
   val errorMessage: String? = null,
+  val isEditMode: Boolean = false,
+  val existingEntryDate: String = "",
 ) {
   val destinationMealDisplayName: String
     get() = formatMealDisplayName(selectedMealType)
 
   val addButtonText: String
-    get() = "Add to $destinationMealDisplayName"
+    get() = if (isEditMode) "Save Changes" else "Add to $destinationMealDisplayName"
 }
 
 class FoodDetailsViewModel(
   val foodId: Long,
   val initialMealType: String = "",
+  val mealEntryId: Long = 0L,
   private val foodDao: FoodDao,
   private val mealEntryDao: MealEntryDao,
   private val dateProvider: () -> LocalDate = { LocalDate.now() },
@@ -82,6 +85,7 @@ class FoodDetailsViewModel(
     FoodDetailsUiState(
       isLoading = true,
       selectedMealType = resolveInitialMealType(initialMealType),
+      isEditMode = mealEntryId > 0L,
     )
   )
   val uiState: StateFlow<FoodDetailsUiState> = _uiState.asStateFlow()
@@ -101,6 +105,47 @@ class FoodDetailsViewModel(
   fun loadFood() {
     viewModelScope.launch {
       _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+
+      if (mealEntryId > 0L) {
+        val existingEntry = mealEntryDao.getEntryById(mealEntryId)
+        if (existingEntry != null) {
+          val targetFoodId = if (foodId > 0L) foodId else existingEntry.foodId
+          val foundFood = foodDao.getById(targetFoodId)
+          if (foundFood != null) {
+            val nutrition = NutritionCalculator.calculate(
+              quantityGrams = existingEntry.quantityGrams,
+              caloriesPer100g = foundFood.caloriesPer100g,
+              proteinPer100g = foundFood.proteinPer100g,
+              carbsPer100g = foundFood.carbsPer100g,
+              fatPer100g = foundFood.fatPer100g,
+            )
+            val qtyText = if (existingEntry.quantityGrams % 1.0 == 0.0) {
+              "${existingEntry.quantityGrams.toInt()}"
+            } else {
+              String.format(Locale.US, "%.1f", existingEntry.quantityGrams)
+            }
+            _uiState.update {
+              it.copy(
+                isLoading = false,
+                food = foundFood,
+                selectedMealType = existingEntry.mealType,
+                quantityInput = qtyText,
+                quantityGrams = existingEntry.quantityGrams,
+                isValidQuantity = true,
+                quantityErrorMessage = null,
+                calculatedCalories = nutrition.calories,
+                calculatedProtein = nutrition.protein,
+                calculatedCarbs = nutrition.carbs,
+                calculatedFat = nutrition.fat,
+                isEditMode = true,
+                existingEntryDate = existingEntry.date,
+              )
+            }
+            return@launch
+          }
+        }
+      }
+
       val foundFood = foodDao.getById(foodId)
       if (foundFood != null) {
         val initialNutrition = NutritionCalculator.calculate(
@@ -122,6 +167,7 @@ class FoodDetailsViewModel(
             calculatedProtein = initialNutrition.protein,
             calculatedCarbs = initialNutrition.carbs,
             calculatedFat = initialNutrition.fat,
+            isEditMode = false,
           )
         }
       } else {
@@ -275,17 +321,35 @@ class FoodDetailsViewModel(
           carbsPer100g = currentFood.carbsPer100g,
           fatPer100g = currentFood.fatPer100g,
         )
-        val entry = MealEntryEntity(
-          date = dateProvider().format(DateTimeFormatter.ISO_LOCAL_DATE),
-          mealType = normalizeMealType(state.selectedMealType),
-          foodId = currentFood.id,
-          quantityGrams = grams,
-          calories = nutrition.calories,
-          protein = nutrition.protein,
-          carbs = nutrition.carbs,
-          fat = nutrition.fat,
-        )
-        mealEntryDao.insert(entry)
+        if (mealEntryId > 0L) {
+          val entryDate = state.existingEntryDate.ifBlank {
+            dateProvider().format(DateTimeFormatter.ISO_LOCAL_DATE)
+          }
+          val updatedEntry = MealEntryEntity(
+            id = mealEntryId,
+            date = entryDate,
+            mealType = normalizeMealType(state.selectedMealType),
+            foodId = currentFood.id,
+            quantityGrams = grams,
+            calories = nutrition.calories,
+            protein = nutrition.protein,
+            carbs = nutrition.carbs,
+            fat = nutrition.fat,
+          )
+          mealEntryDao.update(updatedEntry)
+        } else {
+          val entry = MealEntryEntity(
+            date = dateProvider().format(DateTimeFormatter.ISO_LOCAL_DATE),
+            mealType = normalizeMealType(state.selectedMealType),
+            foodId = currentFood.id,
+            quantityGrams = grams,
+            calories = nutrition.calories,
+            protein = nutrition.protein,
+            carbs = nutrition.carbs,
+            fat = nutrition.fat,
+          )
+          mealEntryDao.insert(entry)
+        }
         _uiState.update { it.copy(isSaving = false, isSaved = true) }
         onSuccess()
       } catch (e: Exception) {
@@ -297,6 +361,7 @@ class FoodDetailsViewModel(
   class Factory(
     private val foodId: Long,
     private val initialMealType: String,
+    private val mealEntryId: Long = 0L,
     private val foodDao: FoodDao,
     private val mealEntryDao: MealEntryDao,
     private val dateProvider: () -> LocalDate = { LocalDate.now() },
@@ -308,6 +373,7 @@ class FoodDetailsViewModel(
         return FoodDetailsViewModel(
           foodId = foodId,
           initialMealType = initialMealType,
+          mealEntryId = mealEntryId,
           foodDao = foodDao,
           mealEntryDao = mealEntryDao,
           dateProvider = dateProvider,

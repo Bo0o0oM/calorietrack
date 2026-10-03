@@ -62,6 +62,38 @@ interface MealEntryDao {
     """
   )
   fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>>
+
+  @Query("SELECT * FROM meal_entries WHERE id = :id LIMIT 1")
+  suspend fun getEntryById(id: Long): MealEntryEntity?
+
+  @Query("DELETE FROM meal_entries WHERE id = :id")
+  suspend fun deleteById(id: Long)
+
+  @Query(
+    """
+    SELECT
+      meal_entries.id AS id,
+      meal_entries.date AS date,
+      meal_entries.meal_type AS mealType,
+      meal_entries.food_id AS foodId,
+      meal_entries.quantity_grams AS quantityGrams,
+      meal_entries.calories AS calories,
+      meal_entries.protein AS protein,
+      meal_entries.carbs AS carbs,
+      meal_entries.fat AS fat,
+      COALESCE(foods.name, 'Unknown Food') AS foodName
+    FROM meal_entries
+    LEFT JOIN foods ON meal_entries.food_id = foods.id
+    WHERE meal_entries.date = :date
+      AND (
+        meal_entries.meal_type = :mealType
+        OR (:mealType = 'snack' AND meal_entries.meal_type = 'snacks')
+        OR (:mealType = 'snacks' AND meal_entries.meal_type = 'snack')
+      )
+    ORDER BY meal_entries.id ASC
+    """
+  )
+  fun getEntriesWithFoodForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryWithFood>>
 }
 
 data class MealEntryWithFood(

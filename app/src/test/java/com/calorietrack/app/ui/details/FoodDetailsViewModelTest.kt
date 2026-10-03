@@ -338,6 +338,121 @@ class FoodDetailsViewModelTest {
     assertFalse(callbackCalled)
     assertTrue(fakeMealEntryDao.insertedEntries.isEmpty())
   }
+
+  @Test
+  fun editMode_preloadsExistingEntryQuantityAndMealType() = runTest {
+    val existingEntry = MealEntryEntity(
+      id = 100L,
+      date = "2026-10-02",
+      mealType = "dinner",
+      foodId = 42L,
+      quantityGrams = 180.0,
+      calories = 279.0,
+      protein = 22.68,
+      carbs = 1.98,
+      fat = 19.08,
+    )
+    fakeMealEntryDao.insertedEntries.add(existingEntry)
+
+    val viewModel = FoodDetailsViewModel(
+      foodId = 42L,
+      initialMealType = "dinner",
+      mealEntryId = 100L,
+      foodDao = fakeFoodDao,
+      mealEntryDao = fakeMealEntryDao,
+      dateProvider = { fixedDate },
+      timeProvider = { fixedTime },
+    )
+    advanceUntilIdle()
+
+    val state = viewModel.uiState.value
+    assertTrue(state.isEditMode)
+    assertEquals("180", state.quantityInput)
+    assertEquals(180.0, state.quantityGrams)
+    assertEquals("dinner", state.selectedMealType)
+    assertEquals("Save Changes", state.addButtonText)
+    assertEquals(155.0 * 1.8, state.calculatedCalories, 0.001)
+  }
+
+  @Test
+  fun editMode_saveUpdatesExistingEntryId_andDoesNotCreateSecondEntry() = runTest {
+    val existingEntry = MealEntryEntity(
+      id = 100L,
+      date = "2026-10-02",
+      mealType = "dinner",
+      foodId = 42L,
+      quantityGrams = 180.0,
+      calories = 279.0,
+      protein = 22.68,
+      carbs = 1.98,
+      fat = 19.08,
+    )
+    fakeMealEntryDao.insertedEntries.add(existingEntry)
+
+    val viewModel = FoodDetailsViewModel(
+      foodId = 42L,
+      initialMealType = "dinner",
+      mealEntryId = 100L,
+      foodDao = fakeFoodDao,
+      mealEntryDao = fakeMealEntryDao,
+      dateProvider = { fixedDate },
+      timeProvider = { fixedTime },
+    )
+    advanceUntilIdle()
+
+    viewModel.onQuantityChanged("250")
+
+    var callbackCalled = false
+    viewModel.logMeal(onSuccess = { callbackCalled = true })
+    advanceUntilIdle()
+
+    assertTrue(callbackCalled)
+    // Confirm exact single entry in DAO (no duplicates)
+    assertEquals(1, fakeMealEntryDao.insertedEntries.size)
+
+    val updated = fakeMealEntryDao.insertedEntries.first()
+    assertEquals(100L, updated.id) // Same ID preserved
+    assertEquals("2026-10-02", updated.date) // Original date preserved
+    assertEquals("dinner", updated.mealType)
+    assertEquals(250.0, updated.quantityGrams, 0.001)
+    assertEquals(155.0 * 2.5, updated.calories, 0.001)
+    assertEquals(12.6 * 2.5, updated.protein, 0.001)
+  }
+
+  @Test
+  fun editMode_cancellationLeavesEntryUnchanged() = runTest {
+    val existingEntry = MealEntryEntity(
+      id = 100L,
+      date = "2026-10-02",
+      mealType = "dinner",
+      foodId = 42L,
+      quantityGrams = 180.0,
+      calories = 279.0,
+      protein = 22.68,
+      carbs = 1.98,
+      fat = 19.08,
+    )
+    fakeMealEntryDao.insertedEntries.add(existingEntry)
+
+    val viewModel = FoodDetailsViewModel(
+      foodId = 42L,
+      initialMealType = "dinner",
+      mealEntryId = 100L,
+      foodDao = fakeFoodDao,
+      mealEntryDao = fakeMealEntryDao,
+      dateProvider = { fixedDate },
+      timeProvider = { fixedTime },
+    )
+    advanceUntilIdle()
+
+    // User changes quantity to 300g, but navigates back/cancels without saving
+    viewModel.onQuantityChanged("300")
+
+    assertEquals(1, fakeMealEntryDao.insertedEntries.size)
+    val unchanged = fakeMealEntryDao.insertedEntries.first()
+    assertEquals(100L, unchanged.id)
+    assertEquals(180.0, unchanged.quantityGrams, 0.001)
+  }
 }
 
 class FakeFoodDao(private val foods: List<FoodEntity>) : FoodDao {
@@ -367,10 +482,23 @@ class FakeMealEntryDao : MealEntryDao {
     return withId.id
   }
 
-  override suspend fun update(entry: MealEntryEntity) {}
+  override suspend fun update(entry: MealEntryEntity) {
+    val index = insertedEntries.indexOfFirst { it.id == entry.id }
+    if (index != -1) {
+      insertedEntries[index] = entry
+    }
+  }
+
   override suspend fun delete(entry: MealEntryEntity) {
     insertedEntries.removeAll { it.id == entry.id }
   }
+
+  override suspend fun deleteById(id: Long) {
+    insertedEntries.removeAll { it.id == id }
+  }
+
+  override suspend fun getEntryById(id: Long): MealEntryEntity? =
+    insertedEntries.find { it.id == id }
 
   override suspend fun deleteForDate(date: String) {
     insertedEntries.removeAll { it.date == date }
@@ -390,6 +518,28 @@ class FakeMealEntryDao : MealEntryDao {
 
   override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> {
     val matching = insertedEntries.filter { it.date == date }
+    return flowOf(
+      matching.map {
+        MealEntryWithFood(
+          id = it.id,
+          date = it.date,
+          mealType = it.mealType,
+          foodId = it.foodId,
+          quantityGrams = it.quantityGrams,
+          calories = it.calories,
+          protein = it.protein,
+          carbs = it.carbs,
+          fat = it.fat,
+          foodName = "Test Food ${it.foodId}",
+        )
+      }
+    )
+  }
+
+  override fun getEntriesWithFoodForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryWithFood>> {
+    val matching = insertedEntries.filter {
+      it.date == date && (it.mealType == mealType || (mealType == "snack" && it.mealType == "snacks") || (mealType == "snacks" && it.mealType == "snack"))
+    }
     return flowOf(
       matching.map {
         MealEntryWithFood(

@@ -103,7 +103,7 @@ fun FoodDetailsContent(
       TopAppBar(
         title = {
           Text(
-            text = "Food Details",
+            text = if (state.isEditMode) "Edit Entry" else "Food Details",
             fontWeight = FontWeight.Bold,
           )
         },

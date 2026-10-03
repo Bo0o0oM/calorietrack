@@ -10,7 +10,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class FoodSearchNavKey(val mealType: String = "") : NavKey
 
 /** Food Details screen destination */
-@Serializable data class FoodDetailsNavKey(val foodId: Long, val mealType: String = "") : NavKey
+@Serializable data class FoodDetailsNavKey(val foodId: Long, val mealType: String = "", val mealEntryId: Long = 0L) : NavKey
+
+/** Meal Details & Management screen destination */
+@Serializable data class MealDetailsNavKey(val mealType: String, val date: String = "") : NavKey
 
 /** Daily History screen destination */
 @Serializable data object HistoryNavKey : NavKey

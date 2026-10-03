@@ -33,6 +33,8 @@ import com.calorietrack.app.ui.details.FoodDetailsScreen
 import com.calorietrack.app.ui.details.FoodDetailsViewModel
 import com.calorietrack.app.ui.main.MainScreen
 import com.calorietrack.app.ui.main.MainScreenViewModel
+import com.calorietrack.app.ui.meal.MealDetailsScreen
+import com.calorietrack.app.ui.meal.MealDetailsViewModel
 import com.calorietrack.app.ui.search.FoodSearchScreen
 import com.calorietrack.app.ui.search.FoodSearchViewModel
 
@@ -58,6 +60,7 @@ fun MainNavigation() {
             )
           MainScreen(
             onNavigateToSearch = { meal -> backStack.add(FoodSearchNavKey(meal)) },
+            onNavigateToMealDetails = { meal -> backStack.add(MealDetailsNavKey(mealType = meal)) },
             onNavigateToHistory = { backStack.add(HistoryNavKey) },
             onNavigateToSettings = { backStack.add(SettingsNavKey) },
             viewModel = mainViewModel,
@@ -82,16 +85,46 @@ fun MainNavigation() {
             modifier = Modifier.safeDrawingPadding(),
           )
         }
+        entry<MealDetailsNavKey> { key ->
+          val context = LocalContext.current
+          val db = CalorieTrackDatabase.getInstance(context)
+          val mealViewModel: MealDetailsViewModel =
+            viewModel(
+              key = "MealDetailsViewModel_${key.mealType}_${key.date}",
+              factory =
+                MealDetailsViewModel.Factory(
+                  mealType = key.mealType,
+                  date = key.date,
+                  mealEntryDao = db.mealEntryDao(),
+                ),
+            )
+          MealDetailsScreen(
+            onBack = { backStack.removeLastOrNull() },
+            onAddFood = { meal -> backStack.add(FoodSearchNavKey(mealType = meal)) },
+            onEditEntry = { entry ->
+              backStack.add(
+                FoodDetailsNavKey(
+                  foodId = entry.foodId,
+                  mealType = entry.mealType,
+                  mealEntryId = entry.id,
+                )
+              )
+            },
+            viewModel = mealViewModel,
+            modifier = Modifier.safeDrawingPadding(),
+          )
+        }
         entry<FoodDetailsNavKey> { key ->
           val context = LocalContext.current
           val db = CalorieTrackDatabase.getInstance(context)
           val detailsViewModel: FoodDetailsViewModel =
             viewModel(
-              key = "FoodDetailsViewModel_${key.foodId}_${key.mealType}",
+              key = "FoodDetailsViewModel_${key.foodId}_${key.mealType}_${key.mealEntryId}",
               factory =
                 FoodDetailsViewModel.Factory(
                   foodId = key.foodId,
                   initialMealType = key.mealType,
+                  mealEntryId = key.mealEntryId,
                   foodDao = db.foodDao(),
                   mealEntryDao = db.mealEntryDao(),
                 ),
@@ -99,8 +132,19 @@ fun MainNavigation() {
           FoodDetailsScreen(
             onBack = { backStack.removeLastOrNull() },
             onMealLogged = {
-              while (backStack.size > 1) {
+              if (key.mealEntryId > 0L) {
                 backStack.removeLastOrNull()
+              } else {
+                val hasMealDetails = backStack.any { it is MealDetailsNavKey }
+                if (hasMealDetails) {
+                  while (backStack.size > 1 && backStack.last() !is MealDetailsNavKey) {
+                    backStack.removeLastOrNull()
+                  }
+                } else {
+                  while (backStack.size > 1) {
+                    backStack.removeLastOrNull()
+                  }
+                }
               }
             },
             viewModel = detailsViewModel,

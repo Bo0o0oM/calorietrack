@@ -56,6 +56,7 @@ import com.calorietrack.app.theme.ProteinColor
 @Composable
 fun MainScreen(
   onNavigateToSearch: (mealType: String) -> Unit,
+  onNavigateToMealDetails: (mealType: String) -> Unit,
   onNavigateToHistory: () -> Unit,
   onNavigateToSettings: () -> Unit,
   modifier: Modifier = Modifier,
@@ -66,6 +67,7 @@ fun MainScreen(
   DashboardContent(
     state = state,
     onNavigateToSearch = onNavigateToSearch,
+    onNavigateToMealDetails = onNavigateToMealDetails,
     onNavigateToHistory = onNavigateToHistory,
     onNavigateToSettings = onNavigateToSettings,
     modifier = modifier,
@@ -76,6 +78,7 @@ fun MainScreen(
 fun DashboardContent(
   state: DashboardUiState,
   onNavigateToSearch: (mealType: String) -> Unit,
+  onNavigateToMealDetails: (mealType: String) -> Unit,
   onNavigateToHistory: () -> Unit,
   onNavigateToSettings: () -> Unit,
   modifier: Modifier = Modifier,
@@ -140,6 +143,7 @@ fun DashboardContent(
       state.meals.forEach { meal ->
         MealSectionCard(
           meal = meal,
+          onCardClick = { onNavigateToMealDetails(meal.key) },
           onAddClick = { onNavigateToSearch(meal.key) },
         )
       }
@@ -423,11 +427,19 @@ private fun EmptyDayCard(
 @Composable
 private fun MealSectionCard(
   meal: MealSection,
+  onCardClick: () -> Unit,
   onAddClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Card(
-    modifier = modifier.fillMaxWidth(),
+    onClick = onCardClick,
+    modifier =
+      modifier
+        .fillMaxWidth()
+        .semantics {
+          contentDescription =
+            "${meal.displayName}, ${meal.consumedCalories} calories logged. Tap to view and manage entries."
+        },
     shape = RoundedCornerShape(16.dp),
     colors =
       CardDefaults.cardColors(
@@ -537,6 +549,7 @@ fun DashboardPreviewLight() {
           isEmptyDay = true,
         ),
       onNavigateToSearch = {},
+      onNavigateToMealDetails = {},
       onNavigateToHistory = {},
       onNavigateToSettings = {},
     )
@@ -557,6 +570,7 @@ fun DashboardPreviewDark() {
           isEmptyDay = true,
         ),
       onNavigateToSearch = {},
+      onNavigateToMealDetails = {},
       onNavigateToHistory = {},
       onNavigateToSettings = {},
     )

@@ -82,6 +82,19 @@ This roadmap breaks development into small, incremental, self-contained mileston
 
 ---
 
+## Milestone 2F: Meal Details, Edit, and Delete (Completed)
+- **Goal**: Implement dedicated meal management allowing users to view logged foods for any meal, edit quantities with recalculated nutrition, delete entries with confirmation, and see real-time updates across the app.
+- **Tasks**:
+  1. Build `MealDetailsScreen` displaying meal total summary (calories, protein, carbs, fat), entry cards with food name, quantity in grams, calories, compact macros `P · C · F`, edit/delete actions, and an empty meal state with `+ Add Food` action.
+  2. Implement `MealDetailsViewModel` observing `MealEntryDao.getEntriesWithFoodForDateAndMealType(date, mealType)`, computing meal totals directly from stored entries, and managing delete confirmation dialog state.
+  3. Expand `MealEntryDao` with `getEntryById(id)`, `deleteById(id)`, and `getEntriesWithFoodForDateAndMealType(date, mealType)` reactive Flow stream without database schema changes.
+  4. Extend `FoodDetailsScreen` and `FoodDetailsViewModel` to support edit mode (`mealEntryId > 0L`), preloading existing entry details, updating the existing entry without creating duplicates, and displaying "Edit Entry" in the top bar.
+  5. Update `Navigation.kt` and `NavigationKeys.kt` with `MealDetailsNavKey(mealType, date)`, wiring dashboard meal card taps to open `MealDetailsScreen` while keeping the `+` button direct shortcut to `FoodSearchScreen`, and returning to `MealDetailsScreen` upon edit completion.
+  6. Add comprehensive unit tests in `FoodDetailsViewModelTest`, `MealDetailsViewModelTest`, and `MainScreenViewModelTest` verifying preloading, updating with identical ID, cancellation safety, deletion with confirmation, empty state when the final item is deleted, and immediate reactive dashboard reflection.
+- **Verification**: `testDebugUnitTest` (55 tests) and `assembleDebug` pass cleanly; edit and delete workflows verified offline without schema changes.
+
+---
+
 ## Milestone 8: Daily History & Day Navigation
 - **Goal**: Review logs from past days.
 - **Tasks**:
