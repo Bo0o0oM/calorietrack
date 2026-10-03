@@ -95,6 +95,18 @@ This roadmap breaks development into small, incremental, self-contained mileston
 
 ---
 
+## Milestone 2G: Settings and Personal Daily Nutrition Goals (Completed)
+- **Goal**: Make Settings screen functional so the user can configure their personal daily nutrition goals (calories, protein, carbohydrates, fat) for today, persisting locally with Room as single source of truth and dynamically updating the Dashboard.
+- **Tasks**:
+  1. Build `SettingsScreen` with TopAppBar ("Settings"), Daily Nutrition Goals card with numeric inputs for Calories (kcal), Protein (g), Carbohydrates (g), Fat (g), application baseline notice, "Save Goals" button, and "Reset to defaults" action.
+  2. Implement `SettingsViewModel` with input validation (numeric, positive, upper limits), preloading existing goals for today or falling back to defaults (2000 kcal, 140g protein, 250g carbs, 70g fat), reset-to-defaults without immediate persistence, and atomic upsert into `daily_goals`.
+  3. Wire `SettingsNavKey` in `Navigation.kt` with `SettingsViewModel.Factory(dailyGoalDao = db.dailyGoalDao())` and top-left back navigation to Dashboard.
+  4. Verify Dashboard reactive synchronization via `DailyGoalDao.observeForDate(todayIso)`, ensuring calorie targets, remaining calories, progress bar, and macro targets recalculate dynamically while existing logged food entries remain untouched.
+  5. Add unit tests in `SettingsViewModelTest` and `MainScreenViewModelTest` verifying defaults, preloading, saving, updating existing rows without duplicates, rejection of invalid calories/protein/carbs/fat values, reset actions, and dynamic dashboard recalculation.
+- **Verification**: `testDebugUnitTest` (71 tests) and `assembleDebug` pass cleanly; goals persist and update Dashboard in real-time without schema changes.
+
+---
+
 ## Milestone 8: Daily History & Day Navigation
 - **Goal**: Review logs from past days.
 - **Tasks**:

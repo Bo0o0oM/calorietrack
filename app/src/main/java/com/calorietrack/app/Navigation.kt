@@ -37,6 +37,8 @@ import com.calorietrack.app.ui.meal.MealDetailsScreen
 import com.calorietrack.app.ui.meal.MealDetailsViewModel
 import com.calorietrack.app.ui.search.FoodSearchScreen
 import com.calorietrack.app.ui.search.FoodSearchViewModel
+import com.calorietrack.app.ui.settings.SettingsScreen
+import com.calorietrack.app.ui.settings.SettingsViewModel
 
 @Composable
 fun MainNavigation() {
@@ -161,12 +163,19 @@ fun MainNavigation() {
           )
         }
         entry<SettingsNavKey> {
-          PlaceholderScreen(
-            title = "Settings",
-            subtitle = "Preferences & Targets",
-            description =
-              "Custom calorie target editing, macro goals, and offline data management will be available in upcoming milestones.",
+          val context = LocalContext.current
+          val db = CalorieTrackDatabase.getInstance(context)
+          val settingsViewModel: SettingsViewModel =
+            viewModel(
+              factory =
+                SettingsViewModel.Factory(
+                  dailyGoalDao = db.dailyGoalDao(),
+                ),
+            )
+          SettingsScreen(
             onBack = { backStack.removeLastOrNull() },
+            viewModel = settingsViewModel,
+            modifier = Modifier.safeDrawingPadding(),
           )
         }
       },

@@ -419,4 +419,101 @@ class MainScreenViewModelTest {
     assertEquals(0, lunchAfterFinalDelete.consumedCalories)
     assertTrue(emptyState.isEmptyDay)
   }
+
+  @Test
+  fun uiState_reactsToGoalChanges_recalculatingRemainingAndMacros_whilePreservingLoggedFoods() = runTest {
+    val fixedDate = LocalDate.of(2026, 10, 3)
+    val todayIso = "2026-10-03"
+
+    val loggedEntry = MealEntryWithFood(
+      id = 1L,
+      date = todayIso,
+      mealType = "breakfast",
+      foodId = 10L,
+      quantityGrams = 100.0,
+      calories = 500.0,
+      protein = 30.0,
+      carbs = 60.0,
+      fat = 15.0,
+      foodName = "Healthy Breakfast Bowl",
+    )
+    val totals = DailyNutritionTotals(500.0, 30.0, 60.0, 15.0)
+
+    val initialGoal = DailyGoalEntity(
+      date = todayIso,
+      calorieGoal = 2000.0,
+      proteinGoal = 140.0,
+      carbsGoal = 250.0,
+      fatGoal = 70.0,
+    )
+    val goalFlow = kotlinx.coroutines.flow.MutableStateFlow<DailyGoalEntity?>(initialGoal)
+
+    val fakeEntryDao = object : FakeMealEntryDao() {
+      override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> = flowOf(totals)
+      override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> = flowOf(listOf(loggedEntry))
+    }
+
+    val fakeGoalDao = object : DailyGoalDao {
+      override suspend fun getForDate(date: String): DailyGoalEntity? = goalFlow.value
+      override fun observeForDate(date: String): Flow<DailyGoalEntity?> = goalFlow
+      override suspend fun insert(goal: DailyGoalEntity): Long = 1L
+      override suspend fun update(goal: DailyGoalEntity) {}
+      override suspend fun upsert(goal: DailyGoalEntity) {}
+    }
+
+    val viewModel = MainScreenViewModel(
+      mealEntryDao = fakeEntryDao,
+      dailyGoalDao = fakeGoalDao,
+      dateProvider = { fixedDate },
+    )
+
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+    advanceUntilIdle()
+
+    val initialState = viewModel.uiState.value
+    assertEquals(500, initialState.consumedCalories)
+    assertEquals(2000, initialState.targetCalories)
+    assertEquals(1500, initialState.remainingCalories)
+    assertEquals(0.25f, initialState.calorieProgress, 0.001f)
+    assertEquals(140, initialState.protein.target)
+    assertEquals(30, initialState.protein.consumed)
+    assertEquals(250, initialState.carbs.target)
+    assertEquals(60, initialState.carbs.consumed)
+    assertEquals(70, initialState.fat.target)
+    assertEquals(15, initialState.fat.consumed)
+
+    // User edits goals in Settings: Calories from 2000 to 1800, Protein to 160, Carbs to 200, Fat to 50
+    val updatedGoal = DailyGoalEntity(
+      date = todayIso,
+      calorieGoal = 1800.0,
+      proteinGoal = 160.0,
+      carbsGoal = 200.0,
+      fatGoal = 50.0,
+    )
+    goalFlow.value = updatedGoal
+    advanceUntilIdle()
+
+    val updatedState = viewModel.uiState.value
+    // Consumed calories and logged foods must remain UNCHANGED
+    assertEquals(500, updatedState.consumedCalories)
+    val breakfast = updatedState.meals.first { it.key == "breakfast" }
+    assertEquals(1, breakfast.items.size)
+    assertEquals("Healthy Breakfast Bowl", breakfast.items[0].name)
+    assertEquals(500, breakfast.consumedCalories)
+
+    // Target, remaining, and progress MUST recalculate
+    assertEquals(1800, updatedState.targetCalories)
+    assertEquals(1300, updatedState.remainingCalories) // 1800 - 500
+    assertEquals(500f / 1800f, updatedState.calorieProgress, 0.001f)
+
+    // Macro targets MUST update while consumed amounts remain unchanged
+    assertEquals(160, updatedState.protein.target)
+    assertEquals(30, updatedState.protein.consumed)
+    assertEquals(200, updatedState.carbs.target)
+    assertEquals(60, updatedState.carbs.consumed)
+    assertEquals(50, updatedState.fat.target)
+    assertEquals(15, updatedState.fat.consumed)
+  }
 }
