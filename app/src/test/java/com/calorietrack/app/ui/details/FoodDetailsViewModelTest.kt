@@ -557,4 +557,9 @@ class FakeMealEntryDao : MealEntryDao {
       }
     )
   }
+
+  override fun observeAllDailyTotals(): Flow<List<com.calorietrack.app.data.local.DailySummary>> = flowOf(emptyList())
+
+  override fun getDatesWithEntries(): Flow<List<String>> =
+    flowOf(insertedEntries.map { it.date }.distinct().sortedDescending())
 }

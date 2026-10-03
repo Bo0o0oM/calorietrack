@@ -37,6 +37,10 @@ import com.calorietrack.app.ui.meal.MealDetailsScreen
 import com.calorietrack.app.ui.meal.MealDetailsViewModel
 import com.calorietrack.app.ui.search.FoodSearchScreen
 import com.calorietrack.app.ui.search.FoodSearchViewModel
+import com.calorietrack.app.ui.history.HistoricalDayDetailsScreen
+import com.calorietrack.app.ui.history.HistoricalDayDetailsViewModel
+import com.calorietrack.app.ui.history.HistoryScreen
+import com.calorietrack.app.ui.history.HistoryViewModel
 import com.calorietrack.app.ui.settings.SettingsScreen
 import com.calorietrack.app.ui.settings.SettingsViewModel
 
@@ -154,12 +158,40 @@ fun MainNavigation() {
           )
         }
         entry<HistoryNavKey> {
-          PlaceholderScreen(
-            title = "Daily History",
-            subtitle = "Dietary Trends & Past Days",
-            description =
-              "Reviewing past meals, historical calorie totals, and weekly macronutrient trends will be available in upcoming milestones.",
+          val context = LocalContext.current
+          val db = CalorieTrackDatabase.getInstance(context)
+          val historyViewModel: HistoryViewModel =
+            viewModel(
+              factory =
+                HistoryViewModel.Factory(
+                  mealEntryDao = db.mealEntryDao(),
+                  dailyGoalDao = db.dailyGoalDao(),
+                ),
+            )
+          HistoryScreen(
             onBack = { backStack.removeLastOrNull() },
+            onSelectDate = { dateIso -> backStack.add(HistoricalDayDetailsNavKey(date = dateIso)) },
+            viewModel = historyViewModel,
+            modifier = Modifier.safeDrawingPadding(),
+          )
+        }
+        entry<HistoricalDayDetailsNavKey> { key ->
+          val context = LocalContext.current
+          val db = CalorieTrackDatabase.getInstance(context)
+          val detailsViewModel: HistoricalDayDetailsViewModel =
+            viewModel(
+              key = "HistoricalDayDetailsViewModel_${key.date}",
+              factory =
+                HistoricalDayDetailsViewModel.Factory(
+                  dateIso = key.date,
+                  mealEntryDao = db.mealEntryDao(),
+                  dailyGoalDao = db.dailyGoalDao(),
+                ),
+            )
+          HistoricalDayDetailsScreen(
+            onBack = { backStack.removeLastOrNull() },
+            viewModel = detailsViewModel,
+            modifier = Modifier.safeDrawingPadding(),
           )
         }
         entry<SettingsNavKey> {

@@ -107,6 +107,19 @@ This roadmap breaks development into small, incremental, self-contained mileston
 
 ---
 
+## Milestone 2H: Daily History and Historical Day Details (Completed)
+- **Goal**: Enable users to review past logged days and daily goals from the Dashboard History button, viewing historical meals, food entries, and daily calorie/macro totals in a read-only historical detail screen without modifying past records.
+- **Tasks**:
+  1. Build `HistoryScreen` displaying dates with logged entries or saved goals sorted newest first, showing friendly date formatting ("Today", "Yesterday", "October 1, 2026"), consumed calories vs goals, and compact macros, with an intentional empty state.
+  2. Build `HistoricalDayDetailsScreen` providing read-only inspection of a selected date's daily nutrition totals (calories, protein, carbs, fat vs goals when set), and breakdowns for Breakfast, Lunch, Dinner, and Snacks based on stored meal entry nutrition values without modifying or recalculating.
+  3. Expand `MealEntryDao` and `DailyGoalDao` with `observeAllDailyTotals()`, `getDatesWithEntries()`, `getAllGoals()`, and `getDatesWithGoals()` without Room schema changes.
+  4. Implement `HistoryViewModel` and `HistoricalDayDetailsViewModel` reactively aggregating dates, computing totals, and handling missing goals gracefully.
+  5. Wire `HistoryNavKey` and `HistoricalDayDetailsNavKey` in `Navigation.kt` with backstack navigation from Dashboard to History, History to Day Details, and back.
+  6. Add unit tests in `HistoryViewModelTest`, `HistoricalDayDetailsViewModelTest`, and `MainScreenViewModelTest` verifying date aggregation, sorting, grouping, stored nutrition preservation, goal handling, and independence of today's Dashboard.
+- **Verification**: `testDebugUnitTest` (85 tests) and `assembleDebug` pass cleanly; historical review functions offline without schema changes.
+
+---
+
 ## Milestone 8: Daily History & Day Navigation
 - **Goal**: Review logs from past days.
 - **Tasks**:

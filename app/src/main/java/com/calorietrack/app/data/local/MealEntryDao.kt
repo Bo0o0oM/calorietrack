@@ -94,7 +94,33 @@ interface MealEntryDao {
     """
   )
   fun getEntriesWithFoodForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryWithFood>>
+
+  @Query(
+    """
+    SELECT
+      date,
+      COALESCE(SUM(calories), 0.0) AS totalCalories,
+      COALESCE(SUM(protein), 0.0) AS totalProtein,
+      COALESCE(SUM(carbs), 0.0) AS totalCarbs,
+      COALESCE(SUM(fat), 0.0) AS totalFat
+    FROM meal_entries
+    GROUP BY date
+    ORDER BY date DESC
+    """
+  )
+  fun observeAllDailyTotals(): Flow<List<DailySummary>>
+
+  @Query("SELECT DISTINCT date FROM meal_entries ORDER BY date DESC")
+  fun getDatesWithEntries(): Flow<List<String>>
 }
+
+data class DailySummary(
+  val date: String,
+  val totalCalories: Double,
+  val totalProtein: Double,
+  val totalCarbs: Double,
+  val totalFat: Double,
+)
 
 data class MealEntryWithFood(
   val id: Long,

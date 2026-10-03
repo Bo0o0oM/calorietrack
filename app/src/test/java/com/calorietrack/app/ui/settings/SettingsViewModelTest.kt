@@ -60,7 +60,13 @@ class SettingsViewModelTest {
       goalFlow.value = goals.toMap()
     }
 
-    fun getAllGoals(): List<DailyGoalEntity> = goals.values.toList()
+    override fun getAllGoals(): Flow<List<DailyGoalEntity>> =
+      goalFlow.map { it.values.toList() }
+
+    override fun getDatesWithGoals(): Flow<List<String>> =
+      goalFlow.map { it.keys.toList() }
+
+    fun getAllGoalsList(): List<DailyGoalEntity> = goals.values.toList()
   }
 
   @Before
@@ -183,9 +189,9 @@ class SettingsViewModelTest {
     viewModel.saveGoals(onSaved = {})
     advanceUntilIdle()
 
-    assertEquals(1, fakeDao.getAllGoals().size)
-    assertEquals(todayIso, fakeDao.getAllGoals().first().date)
-    assertEquals(2000.0, fakeDao.getAllGoals().first().calorieGoal)
+    assertEquals(1, fakeDao.getAllGoalsList().size)
+    assertEquals(todayIso, fakeDao.getAllGoalsList().first().date)
+    assertEquals(2000.0, fakeDao.getAllGoalsList().first().calorieGoal)
   }
 
   @Test

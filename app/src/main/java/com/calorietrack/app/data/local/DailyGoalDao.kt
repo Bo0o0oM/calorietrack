@@ -25,4 +25,10 @@ interface DailyGoalDao {
 
   @Upsert
   suspend fun upsert(goal: DailyGoalEntity)
+
+  @Query("SELECT * FROM daily_goals ORDER BY date DESC")
+  fun getAllGoals(): Flow<List<DailyGoalEntity>>
+
+  @Query("SELECT DISTINCT date FROM daily_goals ORDER BY date DESC")
+  fun getDatesWithGoals(): Flow<List<String>>
 }

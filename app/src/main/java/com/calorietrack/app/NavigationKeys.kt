@@ -18,5 +18,8 @@ import kotlinx.serialization.Serializable
 /** Daily History screen destination */
 @Serializable data object HistoryNavKey : NavKey
 
+/** Historical Day Details screen destination */
+@Serializable data class HistoricalDayDetailsNavKey(val date: String) : NavKey
+
 /** Settings screen destination */
 @Serializable data object SettingsNavKey : NavKey

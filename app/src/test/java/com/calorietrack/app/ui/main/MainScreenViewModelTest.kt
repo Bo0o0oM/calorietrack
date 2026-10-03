@@ -47,6 +47,18 @@ class MainScreenViewModelTest {
     override suspend fun deleteById(id: Long) {}
     override fun getEntriesWithFoodForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryWithFood>> =
       flowOf(emptyList())
+    override fun observeAllDailyTotals(): Flow<List<com.calorietrack.app.data.local.DailySummary>> = flowOf(emptyList())
+    override fun getDatesWithEntries(): Flow<List<String>> = flowOf(emptyList())
+  }
+
+  private open class FakeDailyGoalDao : DailyGoalDao {
+    override suspend fun getForDate(date: String): DailyGoalEntity? = null
+    override fun observeForDate(date: String): Flow<DailyGoalEntity?> = flowOf(null)
+    override suspend fun insert(goal: DailyGoalEntity): Long = 1L
+    override suspend fun update(goal: DailyGoalEntity) {}
+    override suspend fun upsert(goal: DailyGoalEntity) {}
+    override fun getAllGoals(): Flow<List<DailyGoalEntity>> = flowOf(emptyList())
+    override fun getDatesWithGoals(): Flow<List<String>> = flowOf(emptyList())
   }
 
   @Before
@@ -251,12 +263,9 @@ class MainScreenViewModelTest {
 
     val fakeEntryDao = FakeMealEntryDao()
 
-    val fakeGoalDao = object : DailyGoalDao {
+    val fakeGoalDao = object : FakeDailyGoalDao() {
       override suspend fun getForDate(date: String): DailyGoalEntity? = customGoal
       override fun observeForDate(date: String): Flow<DailyGoalEntity?> = flowOf(customGoal)
-      override suspend fun insert(goal: DailyGoalEntity): Long = 1L
-      override suspend fun update(goal: DailyGoalEntity) {}
-      override suspend fun upsert(goal: DailyGoalEntity) {}
     }
 
     val viewModel = MainScreenViewModel(
@@ -453,12 +462,9 @@ class MainScreenViewModelTest {
       override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> = flowOf(listOf(loggedEntry))
     }
 
-    val fakeGoalDao = object : DailyGoalDao {
+    val fakeGoalDao = object : FakeDailyGoalDao() {
       override suspend fun getForDate(date: String): DailyGoalEntity? = goalFlow.value
       override fun observeForDate(date: String): Flow<DailyGoalEntity?> = goalFlow
-      override suspend fun insert(goal: DailyGoalEntity): Long = 1L
-      override suspend fun update(goal: DailyGoalEntity) {}
-      override suspend fun upsert(goal: DailyGoalEntity) {}
     }
 
     val viewModel = MainScreenViewModel(
@@ -515,5 +521,70 @@ class MainScreenViewModelTest {
     assertEquals(60, updatedState.carbs.consumed)
     assertEquals(50, updatedState.fat.target)
     assertEquals(15, updatedState.fat.consumed)
+  }
+
+  @Test
+  fun uiState_historicalDataDoesNotAlterTodayDashboard() = runTest {
+    val fixedDate = LocalDate.of(2026, 10, 3)
+    val todayIso = "2026-10-03"
+    val yesterdayIso = "2026-10-02"
+
+    val todayEntry = MealEntryWithFood(
+      id = 1L,
+      date = todayIso,
+      mealType = "breakfast",
+      foodId = 10L,
+      quantityGrams = 100.0,
+      calories = 300.0,
+      protein = 20.0,
+      carbs = 40.0,
+      fat = 8.0,
+      foodName = "Today Oatmeal",
+    )
+    val yesterdayEntry = MealEntryWithFood(
+      id = 2L,
+      date = yesterdayIso,
+      mealType = "dinner",
+      foodId = 20L,
+      quantityGrams = 200.0,
+      calories = 800.0,
+      protein = 60.0,
+      carbs = 80.0,
+      fat = 25.0,
+      foodName = "Yesterday Feast",
+    )
+
+    val todayTotals = DailyNutritionTotals(300.0, 20.0, 40.0, 8.0)
+
+    val fakeEntryDao = object : FakeMealEntryDao() {
+      override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> =
+        if (date == todayIso) flowOf(todayTotals) else flowOf(DailyNutritionTotals(800.0, 60.0, 80.0, 25.0))
+
+      override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> =
+        if (date == todayIso) flowOf(listOf(todayEntry)) else flowOf(listOf(yesterdayEntry))
+    }
+
+    val viewModel = MainScreenViewModel(
+      mealEntryDao = fakeEntryDao,
+      dailyGoalDao = null,
+      dateProvider = { fixedDate },
+    )
+
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+    advanceUntilIdle()
+
+    val state = viewModel.uiState.value
+    // Today's dashboard must only reflect today's totals (300 kcal), NOT yesterday's 800 kcal
+    assertEquals(300, state.consumedCalories)
+    assertEquals(1700, state.remainingCalories)
+    val breakfast = state.meals.first { it.key == "breakfast" }
+    assertEquals(1, breakfast.items.size)
+    assertEquals("Today Oatmeal", breakfast.items[0].name)
+
+    val dinner = state.meals.first { it.key == "dinner" }
+    assertEquals(0, dinner.consumedCalories)
+    assertTrue(dinner.items.isEmpty())
   }
 }
