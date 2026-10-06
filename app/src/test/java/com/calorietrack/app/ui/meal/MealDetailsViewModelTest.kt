@@ -438,4 +438,7 @@ class FakeMealDetailsDao : MealEntryDao {
     throw UnsupportedOperationException()
   override fun getDatesWithEntries(): Flow<List<String>> =
     throw UnsupportedOperationException()
+  override suspend fun getAllMealEntries(): List<MealEntryEntity> = emptyList()
+  override suspend fun deleteAllMealEntries(): Int = 0
+  override suspend fun insertAll(entries: List<MealEntryEntity>) {}
 }

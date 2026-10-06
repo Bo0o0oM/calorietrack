@@ -49,6 +49,9 @@ class MainScreenViewModelTest {
       flowOf(emptyList())
     override fun observeAllDailyTotals(): Flow<List<com.calorietrack.app.data.local.DailySummary>> = flowOf(emptyList())
     override fun getDatesWithEntries(): Flow<List<String>> = flowOf(emptyList())
+    override suspend fun getAllMealEntries(): List<MealEntryEntity> = emptyList()
+    override suspend fun deleteAllMealEntries(): Int = 0
+    override suspend fun insertAll(entries: List<MealEntryEntity>) {}
   }
 
   private open class FakeDailyGoalDao : DailyGoalDao {
@@ -59,6 +62,9 @@ class MainScreenViewModelTest {
     override suspend fun upsert(goal: DailyGoalEntity) {}
     override fun getAllGoals(): Flow<List<DailyGoalEntity>> = flowOf(emptyList())
     override fun getDatesWithGoals(): Flow<List<String>> = flowOf(emptyList())
+    override suspend fun getAllDailyGoals(): List<DailyGoalEntity> = emptyList()
+    override suspend fun deleteAllDailyGoals(): Int = 0
+    override suspend fun insertAll(goals: List<DailyGoalEntity>) {}
   }
 
   @Before

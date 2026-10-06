@@ -84,6 +84,14 @@ class CustomFoodViewModelTest {
     override suspend fun countActive(): Int = foods.values.count { it.isActive }
 
     override suspend fun countActiveCustom(): Int = foods.values.count { it.isCustom && it.isActive }
+
+    override suspend fun getAllCustomFoods(): List<FoodEntity> = foods.values.filter { it.isCustom }
+
+    override suspend fun deleteAllCustomFoods(): Int {
+      val count = foods.values.count { it.isCustom }
+      foods.entries.removeAll { it.value.isCustom }
+      return count
+    }
   }
 
   @Before

@@ -3,6 +3,10 @@ package com.calorietrack.app.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.calorietrack.app.data.backup.BackupRepository
+import com.calorietrack.app.data.backup.BackupValidator
+import com.calorietrack.app.data.backup.CalorieTrackBackup
+import com.calorietrack.app.data.backup.ValidationResult
 import com.calorietrack.app.data.local.DailyGoalDao
 import com.calorietrack.app.data.local.DailyGoalEntity
 import java.time.LocalDate
@@ -24,6 +28,12 @@ data class SettingsUiState(
   val fatError: String? = null,
   val isLoading: Boolean = false,
   val isSaving: Boolean = false,
+  val isExporting: Boolean = false,
+  val isRestoring: Boolean = false,
+  val backupMessage: String? = null,
+  val backupError: String? = null,
+  val pendingRestoreBackup: CalorieTrackBackup? = null,
+  val showRestoreConfirmDialog: Boolean = false,
 ) {
   val isValid: Boolean
     get() =
@@ -39,6 +49,7 @@ data class SettingsUiState(
 
 class SettingsViewModel(
   private val dailyGoalDao: DailyGoalDao,
+  private val backupRepository: BackupRepository? = null,
   private val dateProvider: () -> LocalDate = { LocalDate.now() },
 ) : ViewModel() {
 
@@ -188,6 +199,145 @@ class SettingsViewModel(
     }
   }
 
+  // --- Backup & Restore Methods ---
+
+  fun exportBackupJson(onReady: (String) -> Unit) {
+    val repo = backupRepository
+    if (repo == null) {
+      _uiState.update { it.copy(backupError = "Backup repository is not configured.") }
+      return
+    }
+
+    viewModelScope.launch {
+      _uiState.update { it.copy(isExporting = true, backupError = null, backupMessage = null) }
+      try {
+        val json = repo.exportBackupJson()
+        _uiState.update { it.copy(isExporting = false) }
+        onReady(json)
+      } catch (e: Exception) {
+        _uiState.update {
+          it.copy(
+            isExporting = false,
+            backupError = e.message ?: "Failed to generate backup.",
+          )
+        }
+      }
+    }
+  }
+
+  fun onExportCompleted() {
+    _uiState.update {
+      it.copy(
+        backupMessage = "Backup successfully exported.",
+        backupError = null,
+      )
+    }
+  }
+
+  fun onExportFailed(errorMsg: String) {
+    _uiState.update {
+      it.copy(
+        backupError = errorMsg,
+        backupMessage = null,
+      )
+    }
+  }
+
+  fun onBackupFileLoaded(jsonContent: String) {
+    val repo = backupRepository
+    if (repo == null) {
+      _uiState.update { it.copy(backupError = "Backup repository is not configured.") }
+      return
+    }
+
+    try {
+      val backup = repo.parseBackupJson(jsonContent)
+      val validation = BackupValidator.validate(backup)
+      if (validation is ValidationResult.Invalid) {
+        _uiState.update {
+          it.copy(
+            backupError = "Invalid backup: ${validation.reason}",
+            backupMessage = null,
+          )
+        }
+        return
+      }
+
+      _uiState.update {
+        it.copy(
+          pendingRestoreBackup = backup,
+          showRestoreConfirmDialog = true,
+          backupError = null,
+          backupMessage = null,
+        )
+      }
+    } catch (e: Exception) {
+      _uiState.update {
+        it.copy(
+          backupError = "Failed to parse backup file: ${e.message}",
+          backupMessage = null,
+        )
+      }
+    }
+  }
+
+  fun onConfirmRestore(onSuccess: () -> Unit = {}) {
+    val repo = backupRepository ?: return
+    val backup = _uiState.value.pendingRestoreBackup ?: return
+
+    viewModelScope.launch {
+      _uiState.update {
+        it.copy(
+          isRestoring = true,
+          showRestoreConfirmDialog = false,
+          backupError = null,
+          backupMessage = null,
+        )
+      }
+
+      val result = repo.restoreBackup(backup)
+      if (result.isSuccess) {
+        _uiState.update {
+          it.copy(
+            isRestoring = false,
+            pendingRestoreBackup = null,
+            backupMessage = "Backup restored successfully.",
+            backupError = null,
+          )
+        }
+        loadGoals()
+        onSuccess()
+      } else {
+        _uiState.update {
+          it.copy(
+            isRestoring = false,
+            pendingRestoreBackup = null,
+            backupError = "Restore failed: ${result.exceptionOrNull()?.message}",
+            backupMessage = null,
+          )
+        }
+      }
+    }
+  }
+
+  fun onDismissRestoreDialog() {
+    _uiState.update {
+      it.copy(
+        showRestoreConfirmDialog = false,
+        pendingRestoreBackup = null,
+      )
+    }
+  }
+
+  fun onDismissBackupFeedback() {
+    _uiState.update {
+      it.copy(
+        backupMessage = null,
+        backupError = null,
+      )
+    }
+  }
+
   private fun validateCalories(input: String): String? {
     val value = input.trim().toDoubleOrNull() ?: return "Enter a valid calorie number"
     if (value <= 0) return "Calories must be greater than 0"
@@ -221,12 +371,13 @@ class SettingsViewModel(
 
   class Factory(
     private val dailyGoalDao: DailyGoalDao,
+    private val backupRepository: BackupRepository? = null,
     private val dateProvider: () -> LocalDate = { LocalDate.now() },
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
       if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-        return SettingsViewModel(dailyGoalDao, dateProvider) as T
+        return SettingsViewModel(dailyGoalDao, backupRepository, dateProvider) as T
       }
       throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

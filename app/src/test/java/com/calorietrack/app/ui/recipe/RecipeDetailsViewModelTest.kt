@@ -91,6 +91,11 @@ class RecipeDetailsViewModelTest {
     }
     override suspend fun countActiveRecipes(): Int = recipes.values.count { it.isActive }
     override suspend fun saveRecipeWithIngredients(recipe: RecipeEntity, ingredients: List<RecipeIngredientEntity>): Long = recipe.id
+    override suspend fun getAllRecipes(): List<RecipeEntity> = recipes.values.toList()
+    override suspend fun getAllRecipeIngredients(): List<RecipeIngredientEntity> = emptyList()
+    override suspend fun deleteAllRecipeIngredients(): Int = 0
+    override suspend fun deleteAllRecipes(): Int { val s = recipes.size; recipes.clear(); return s }
+    override suspend fun insertRecipes(recipesList: List<RecipeEntity>) { recipesList.forEach { recipes[it.id] = it } }
   }
 
   private class FakeMealEntryDao : MealEntryDao {
@@ -114,6 +119,9 @@ class RecipeDetailsViewModelTest {
     override fun getEntriesWithFoodForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryWithFood>> = flowOf(emptyList())
     override fun observeAllDailyTotals(): Flow<List<DailySummary>> = flowOf(emptyList())
     override fun getDatesWithEntries(): Flow<List<String>> = flowOf(emptyList())
+    override suspend fun getAllMealEntries(): List<MealEntryEntity> = entries.values.toList()
+    override suspend fun deleteAllMealEntries(): Int { val s = entries.size; entries.clear(); return s }
+    override suspend fun insertAll(entriesList: List<MealEntryEntity>) { entriesList.forEach { entries[it.id] = it } }
   }
 
   @Before

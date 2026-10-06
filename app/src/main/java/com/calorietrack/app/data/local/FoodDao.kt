@@ -69,4 +69,10 @@ interface FoodDao {
 
   @Query("SELECT COUNT(*) FROM foods WHERE is_custom = 1 AND is_active = 1")
   suspend fun countActiveCustom(): Int
+
+  @Query("SELECT * FROM foods WHERE is_custom = 1 ORDER BY id ASC")
+  suspend fun getAllCustomFoods(): List<FoodEntity>
+
+  @Query("DELETE FROM foods WHERE is_custom = 1")
+  suspend fun deleteAllCustomFoods(): Int
 }

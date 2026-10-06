@@ -138,6 +138,8 @@ class FoodSearchViewModelTest {
     override suspend fun count(): Int = allFoods.size
     override suspend fun countActive(): Int = allFoods.count { it.isActive }
     override suspend fun countActiveCustom(): Int = allFoods.count { it.isCustom && it.isActive }
+    override suspend fun getAllCustomFoods(): List<FoodEntity> = allFoods.filter { it.isCustom }
+    override suspend fun deleteAllCustomFoods(): Int = 0
   }
 
   private class FakeRecipeDao(initialRecipes: List<RecipeEntity> = emptyList()) : RecipeDao {
@@ -180,6 +182,11 @@ class FoodSearchViewModelTest {
     }
     override suspend fun countActiveRecipes(): Int = allRecipes.count { it.isActive }
     override suspend fun saveRecipeWithIngredients(recipe: RecipeEntity, ingredients: List<RecipeIngredientEntity>): Long = recipe.id
+    override suspend fun getAllRecipes(): List<RecipeEntity> = allRecipes.toList()
+    override suspend fun getAllRecipeIngredients(): List<RecipeIngredientEntity> = emptyList()
+    override suspend fun deleteAllRecipeIngredients(): Int = 0
+    override suspend fun deleteAllRecipes(): Int { val s = allRecipes.size; allRecipes.clear(); return s }
+    override suspend fun insertRecipes(recipesList: List<RecipeEntity>) { allRecipes.addAll(recipesList) }
   }
 
   @Before

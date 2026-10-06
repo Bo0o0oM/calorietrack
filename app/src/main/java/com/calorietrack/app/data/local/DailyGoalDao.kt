@@ -31,4 +31,13 @@ interface DailyGoalDao {
 
   @Query("SELECT DISTINCT date FROM daily_goals ORDER BY date DESC")
   fun getDatesWithGoals(): Flow<List<String>>
+
+  @Query("SELECT * FROM daily_goals ORDER BY date ASC")
+  suspend fun getAllDailyGoals(): List<DailyGoalEntity>
+
+  @Query("DELETE FROM daily_goals")
+  suspend fun deleteAllDailyGoals(): Int
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAll(goals: List<DailyGoalEntity>)
 }

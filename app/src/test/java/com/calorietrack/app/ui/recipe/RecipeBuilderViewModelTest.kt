@@ -70,6 +70,8 @@ class RecipeBuilderViewModelTest {
     override suspend fun count(): Int = foods.size
     override suspend fun countActive(): Int = foods.size
     override suspend fun countActiveCustom(): Int = foods.count { it.isCustom }
+    override suspend fun getAllCustomFoods(): List<FoodEntity> = foods.filter { it.isCustom }
+    override suspend fun deleteAllCustomFoods(): Int = 0
   }
 
   private class FakeRecipeDao : RecipeDao {
@@ -132,6 +134,12 @@ class RecipeBuilderViewModelTest {
       insertIngredients(ingredients.map { it.copy(recipeId = targetId) })
       return targetId
     }
+
+    override suspend fun getAllRecipes(): List<RecipeEntity> = recipes.values.toList()
+    override suspend fun getAllRecipeIngredients(): List<RecipeIngredientEntity> = ingredients.values.flatten()
+    override suspend fun deleteAllRecipeIngredients(): Int { val s = ingredients.size; ingredients.clear(); return s }
+    override suspend fun deleteAllRecipes(): Int { val s = recipes.size; recipes.clear(); return s }
+    override suspend fun insertRecipes(recipesList: List<RecipeEntity>) { recipesList.forEach { recipes[it.id] = it } }
   }
 
   @Before

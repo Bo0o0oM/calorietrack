@@ -84,6 +84,12 @@ class RecipeHistoricalIntegrityTest {
       override suspend fun count(): Int = foods.size
       override suspend fun countActive(): Int = foods.values.count { it.isActive }
       override suspend fun countActiveCustom(): Int = foods.values.count { it.isCustom && it.isActive }
+      override suspend fun getAllCustomFoods(): List<FoodEntity> = foods.values.filter { it.isCustom }
+      override suspend fun deleteAllCustomFoods(): Int {
+        val count = foods.values.count { it.isCustom }
+        foods.entries.removeAll { it.value.isCustom }
+        return count
+      }
     }
 
     val recipeDao = object : RecipeDao {
@@ -174,6 +180,12 @@ class RecipeHistoricalIntegrityTest {
         insertIngredients(mapped)
         return targetId
       }
+
+      override suspend fun getAllRecipes(): List<RecipeEntity> = recipes.values.toList()
+      override suspend fun getAllRecipeIngredients(): List<RecipeIngredientEntity> = recipeIngredients.values.toList()
+      override suspend fun deleteAllRecipeIngredients(): Int { val s = recipeIngredients.size; recipeIngredients.clear(); return s }
+      override suspend fun deleteAllRecipes(): Int { val s = recipes.size; recipes.clear(); return s }
+      override suspend fun insertRecipes(recipesList: List<RecipeEntity>) { recipesList.forEach { recipes[it.id] = it } }
     }
 
     val mealEntryDao = object : MealEntryDao {
@@ -252,6 +264,18 @@ class RecipeHistoricalIntegrityTest {
 
       override fun getDatesWithEntries(): Flow<List<String>> =
         flowOf(mealEntries.values.map { it.date }.distinct().sortedDescending())
+
+      override suspend fun getAllMealEntries(): List<MealEntryEntity> = mealEntries.values.toList()
+
+      override suspend fun deleteAllMealEntries(): Int {
+        val size = mealEntries.size
+        mealEntries.clear()
+        return size
+      }
+
+      override suspend fun insertAll(entries: List<MealEntryEntity>) {
+        entries.forEach { mealEntries[it.id] = it }
+      }
     }
   }
 

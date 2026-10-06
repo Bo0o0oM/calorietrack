@@ -81,6 +81,14 @@ class CustomFoodHistoricalIntegrityTest {
       override suspend fun countActive(): Int = foods.values.count { it.isActive }
 
       override suspend fun countActiveCustom(): Int = foods.values.count { it.isCustom && it.isActive }
+
+      override suspend fun getAllCustomFoods(): List<FoodEntity> = foods.values.filter { it.isCustom }
+
+      override suspend fun deleteAllCustomFoods(): Int {
+        val count = foods.values.count { it.isCustom }
+        foods.entries.removeAll { it.value.isCustom }
+        return count
+      }
     }
 
     val mealEntryDao = object : MealEntryDao {
@@ -157,6 +165,18 @@ class CustomFoodHistoricalIntegrityTest {
 
       override fun getDatesWithEntries(): Flow<List<String>> =
         flowOf(mealEntries.values.map { it.date }.distinct().sortedDescending())
+
+      override suspend fun getAllMealEntries(): List<MealEntryEntity> = mealEntries.values.toList()
+
+      override suspend fun deleteAllMealEntries(): Int {
+        val size = mealEntries.size
+        mealEntries.clear()
+        return size
+      }
+
+      override suspend fun insertAll(entries: List<MealEntryEntity>) {
+        entries.forEach { mealEntries[it.id] = it }
+      }
     }
   }
 

@@ -470,6 +470,8 @@ class FakeFoodDao(private val foods: List<FoodEntity>) : FoodDao {
   override suspend fun count(): Int = foods.size
   override suspend fun countActive(): Int = foods.count { it.isActive }
   override suspend fun countActiveCustom(): Int = foods.count { it.isCustom && it.isActive }
+  override suspend fun getAllCustomFoods(): List<FoodEntity> = foods.filter { it.isCustom }
+  override suspend fun deleteAllCustomFoods(): Int = 0
 }
 
 class FakeMealEntryDao : MealEntryDao {
@@ -568,4 +570,8 @@ class FakeMealEntryDao : MealEntryDao {
 
   override fun getDatesWithEntries(): Flow<List<String>> =
     flowOf(insertedEntries.map { it.date }.distinct().sortedDescending())
+
+  override suspend fun getAllMealEntries(): List<MealEntryEntity> = insertedEntries.toList()
+  override suspend fun deleteAllMealEntries(): Int { val s = insertedEntries.size; insertedEntries.clear(); return s }
+  override suspend fun insertAll(entries: List<MealEntryEntity>) { insertedEntries.addAll(entries) }
 }

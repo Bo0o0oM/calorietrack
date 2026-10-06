@@ -55,6 +55,9 @@ class HistoryViewModelTest {
     override suspend fun getEntryById(id: Long): MealEntryEntity? = null
     override suspend fun deleteById(id: Long) {}
     override fun getEntriesWithFoodForDateAndMealType(date: String, mealType: String): Flow<List<MealEntryWithFood>> = flowOf(emptyList())
+    override suspend fun getAllMealEntries(): List<MealEntryEntity> = emptyList()
+    override suspend fun deleteAllMealEntries(): Int = 0
+    override suspend fun insertAll(entries: List<MealEntryEntity>) {}
   }
 
   private class TestDailyGoalDao : DailyGoalDao {
@@ -71,6 +74,9 @@ class HistoryViewModelTest {
     override suspend fun insert(goal: DailyGoalEntity): Long = 1L
     override suspend fun update(goal: DailyGoalEntity) {}
     override suspend fun upsert(goal: DailyGoalEntity) {}
+    override suspend fun getAllDailyGoals(): List<DailyGoalEntity> = goals.value
+    override suspend fun deleteAllDailyGoals(): Int = 0
+    override suspend fun insertAll(newGoals: List<DailyGoalEntity>) {}
   }
 
   @Before

@@ -330,11 +330,19 @@ fun MainNavigation() {
         entry<SettingsNavKey> {
           val context = LocalContext.current
           val db = CalorieTrackDatabase.getInstance(context)
+          val backupRepository = com.calorietrack.app.data.backup.BackupRepository(
+            database = db,
+            foodDao = db.foodDao(),
+            recipeDao = db.recipeDao(),
+            mealEntryDao = db.mealEntryDao(),
+            dailyGoalDao = db.dailyGoalDao(),
+          )
           val settingsViewModel: SettingsViewModel =
             viewModel(
               factory =
                 SettingsViewModel.Factory(
                   dailyGoalDao = db.dailyGoalDao(),
+                  backupRepository = backupRepository,
                 ),
             )
           SettingsScreen(

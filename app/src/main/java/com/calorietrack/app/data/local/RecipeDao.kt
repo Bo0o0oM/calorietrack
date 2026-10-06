@@ -71,6 +71,21 @@ interface RecipeDao {
   @Query("SELECT COUNT(*) FROM recipes WHERE is_active = 1")
   suspend fun countActiveRecipes(): Int
 
+  @Query("SELECT * FROM recipes ORDER BY id ASC")
+  suspend fun getAllRecipes(): List<RecipeEntity>
+
+  @Query("SELECT * FROM recipe_ingredients ORDER BY id ASC")
+  suspend fun getAllRecipeIngredients(): List<RecipeIngredientEntity>
+
+  @Query("DELETE FROM recipe_ingredients")
+  suspend fun deleteAllRecipeIngredients(): Int
+
+  @Query("DELETE FROM recipes")
+  suspend fun deleteAllRecipes(): Int
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertRecipes(recipes: List<RecipeEntity>)
+
   @Transaction
   suspend fun saveRecipeWithIngredients(
     recipe: RecipeEntity,

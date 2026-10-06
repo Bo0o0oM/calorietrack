@@ -116,7 +116,17 @@ interface MealEntryDao {
 
   @Query("SELECT DISTINCT date FROM meal_entries ORDER BY date DESC")
   fun getDatesWithEntries(): Flow<List<String>>
+
+  @Query("SELECT * FROM meal_entries ORDER BY date ASC, id ASC")
+  suspend fun getAllMealEntries(): List<MealEntryEntity>
+
+  @Query("DELETE FROM meal_entries")
+  suspend fun deleteAllMealEntries(): Int
+
+  @Insert(onConflict = OnConflictStrategy.REPLACE)
+  suspend fun insertAll(entries: List<MealEntryEntity>)
 }
+
 
 data class DailySummary(
   val date: String,
