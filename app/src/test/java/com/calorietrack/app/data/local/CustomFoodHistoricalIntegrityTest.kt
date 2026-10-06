@@ -129,12 +129,13 @@ class CustomFoodHistoricalIntegrityTest {
             date = entry.date,
             mealType = entry.mealType,
             foodId = entry.foodId,
+            recipeId = entry.recipeId,
             quantityGrams = entry.quantityGrams,
             calories = entry.calories,
             protein = entry.protein,
             carbs = entry.carbs,
             fat = entry.fat,
-            foodName = food?.name ?: "Unknown Food",
+            foodName = entry.entryName ?: food?.name ?: "Unknown Food",
           )
         }
         return flowOf(result)

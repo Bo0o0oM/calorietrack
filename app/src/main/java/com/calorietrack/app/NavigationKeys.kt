@@ -26,3 +26,9 @@ import kotlinx.serialization.Serializable
 
 /** Custom Food creation and editing screen destination */
 @Serializable data class CustomFoodNavKey(val foodId: Long = 0L, val mealType: String = "", val initialName: String = "") : NavKey
+
+/** Recipe Builder screen destination */
+@Serializable data class RecipeBuilderNavKey(val recipeId: Long = 0L, val mealType: String = "") : NavKey
+
+/** Recipe Details & Logging screen destination */
+@Serializable data class RecipeDetailsNavKey(val recipeId: Long, val mealType: String = "", val mealEntryId: Long = 0L) : NavKey

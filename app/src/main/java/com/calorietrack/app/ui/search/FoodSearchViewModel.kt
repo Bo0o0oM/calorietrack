@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.calorietrack.app.data.local.FoodDao
 import com.calorietrack.app.data.local.FoodEntity
+import com.calorietrack.app.data.local.RecipeDao
+import com.calorietrack.app.data.local.RecipeEntity
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -19,6 +22,7 @@ import kotlinx.coroutines.launch
 enum class FoodSearchTab {
   ALL,
   MY_FOODS,
+  MY_RECIPES,
 }
 
 data class FoodSearchUiState(
@@ -26,13 +30,14 @@ data class FoodSearchUiState(
   val mealType: String = "",
   val selectedTab: FoodSearchTab = FoodSearchTab.ALL,
   val results: List<FoodEntity> = emptyList(),
+  val recipeResults: List<RecipeEntity> = emptyList(),
   val isLoading: Boolean = false,
 ) {
   val isQueryBlank: Boolean
     get() = query.trim().isBlank()
 
   val isEmptyResult: Boolean
-    get() = !isLoading && results.isEmpty()
+    get() = !isLoading && (if (selectedTab == FoodSearchTab.MY_RECIPES) recipeResults.isEmpty() else results.isEmpty())
 }
 
 /**
@@ -51,6 +56,7 @@ fun formatMealContextSubtitle(mealType: String): String {
 @OptIn(ExperimentalCoroutinesApi::class)
 class FoodSearchViewModel(
   private val foodDao: FoodDao,
+  private val recipeDao: RecipeDao? = null,
   val mealType: String = "",
 ) : ViewModel() {
 
@@ -66,30 +72,53 @@ class FoodSearchViewModel(
     }
       .flatMapLatest { (rawQuery, tab) ->
         val trimmed = rawQuery.trim()
-        val flow = when (tab) {
+        when (tab) {
           FoodSearchTab.ALL -> {
-            if (trimmed.isBlank()) {
-              foodDao.getAll()
-            } else {
-              foodDao.searchByName(trimmed)
+            val flow = if (trimmed.isBlank()) foodDao.getAll() else foodDao.searchByName(trimmed)
+            flow.map { foods ->
+              FoodSearchUiState(
+                query = rawQuery,
+                mealType = mealType,
+                selectedTab = tab,
+                results = foods,
+                recipeResults = emptyList(),
+                isLoading = false,
+              )
             }
           }
           FoodSearchTab.MY_FOODS -> {
-            if (trimmed.isBlank()) {
-              foodDao.getMyFoods()
-            } else {
-              foodDao.searchMyFoods(trimmed)
+            val flow = if (trimmed.isBlank()) foodDao.getMyFoods() else foodDao.searchMyFoods(trimmed)
+            flow.map { foods ->
+              FoodSearchUiState(
+                query = rawQuery,
+                mealType = mealType,
+                selectedTab = tab,
+                results = foods,
+                recipeResults = emptyList(),
+                isLoading = false,
+              )
             }
           }
-        }
-        flow.map { foods ->
-          FoodSearchUiState(
-            query = rawQuery,
-            mealType = mealType,
-            selectedTab = tab,
-            results = foods,
-            isLoading = false,
-          )
+          FoodSearchTab.MY_RECIPES -> {
+            val rDao = recipeDao
+            val flow = if (rDao == null) {
+              flowOf(emptyList())
+            } else if (trimmed.isBlank()) {
+              rDao.getAllActiveRecipes()
+            } else {
+              rDao.searchActiveRecipes(trimmed)
+            }
+            flow.map { recipes ->
+              FoodSearchUiState(
+                query = rawQuery,
+                mealType = mealType,
+                selectedTab = tab,
+                results = emptyList(),
+                recipeResults = recipes,
+                isLoading = false,
+              )
+            }
+          }
         }
       }
       .stateIn(
@@ -101,6 +130,7 @@ class FoodSearchViewModel(
             mealType = mealType,
             selectedTab = FoodSearchTab.ALL,
             results = emptyList(),
+            recipeResults = emptyList(),
             isLoading = true,
           ),
       )
@@ -123,14 +153,21 @@ class FoodSearchViewModel(
     }
   }
 
+  fun archiveRecipe(id: Long) {
+    viewModelScope.launch {
+      recipeDao?.archiveRecipe(id)
+    }
+  }
+
   class Factory(
     private val foodDao: FoodDao,
-    private val mealType: String,
+    private val recipeDao: RecipeDao? = null,
+    private val mealType: String = "",
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
       if (modelClass.isAssignableFrom(FoodSearchViewModel::class.java)) {
-        return FoodSearchViewModel(foodDao, mealType) as T
+        return FoodSearchViewModel(foodDao, recipeDao, mealType) as T
       }
       throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

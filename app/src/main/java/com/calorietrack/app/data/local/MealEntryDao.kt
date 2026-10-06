@@ -49,14 +49,16 @@ interface MealEntryDao {
       meal_entries.date AS date,
       meal_entries.meal_type AS mealType,
       meal_entries.food_id AS foodId,
+      meal_entries.recipe_id AS recipeId,
       meal_entries.quantity_grams AS quantityGrams,
       meal_entries.calories AS calories,
       meal_entries.protein AS protein,
       meal_entries.carbs AS carbs,
       meal_entries.fat AS fat,
-      COALESCE(foods.name, 'Unknown Food') AS foodName
+      COALESCE(meal_entries.entry_name, recipes.name, foods.name, 'Unknown Food') AS foodName
     FROM meal_entries
     LEFT JOIN foods ON meal_entries.food_id = foods.id
+    LEFT JOIN recipes ON meal_entries.recipe_id = recipes.id
     WHERE meal_entries.date = :date
     ORDER BY meal_entries.id ASC
     """
@@ -76,14 +78,16 @@ interface MealEntryDao {
       meal_entries.date AS date,
       meal_entries.meal_type AS mealType,
       meal_entries.food_id AS foodId,
+      meal_entries.recipe_id AS recipeId,
       meal_entries.quantity_grams AS quantityGrams,
       meal_entries.calories AS calories,
       meal_entries.protein AS protein,
       meal_entries.carbs AS carbs,
       meal_entries.fat AS fat,
-      COALESCE(foods.name, 'Unknown Food') AS foodName
+      COALESCE(meal_entries.entry_name, recipes.name, foods.name, 'Unknown Food') AS foodName
     FROM meal_entries
     LEFT JOIN foods ON meal_entries.food_id = foods.id
+    LEFT JOIN recipes ON meal_entries.recipe_id = recipes.id
     WHERE meal_entries.date = :date
       AND (
         meal_entries.meal_type = :mealType
@@ -127,10 +131,14 @@ data class MealEntryWithFood(
   val date: String,
   val mealType: String,
   val foodId: Long,
+  val recipeId: Long? = null,
   val quantityGrams: Double,
   val calories: Double,
   val protein: Double,
   val carbs: Double,
   val fat: Double,
   val foodName: String,
-)
+) {
+  val isRecipe: Boolean
+    get() = recipeId != null && recipeId > 0L
+}

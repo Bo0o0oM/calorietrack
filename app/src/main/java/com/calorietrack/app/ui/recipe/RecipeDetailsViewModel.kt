@@ -1,12 +1,16 @@
-package com.calorietrack.app.ui.details
+package com.calorietrack.app.ui.recipe
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.calorietrack.app.data.local.FoodDao
-import com.calorietrack.app.data.local.FoodEntity
 import com.calorietrack.app.data.local.MealEntryDao
 import com.calorietrack.app.data.local.MealEntryEntity
+import com.calorietrack.app.data.local.RecipeDao
+import com.calorietrack.app.data.local.RecipeEntity
+import com.calorietrack.app.data.local.RecipeIngredientWithFood
+import com.calorietrack.app.ui.details.defaultMealTypeForHour
+import com.calorietrack.app.ui.details.formatMealDisplayName
+import com.calorietrack.app.ui.details.normalizeMealType
 import com.calorietrack.app.util.NutritionCalculator
 import java.time.LocalDate
 import java.time.LocalTime
@@ -15,40 +19,14 @@ import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-fun normalizeMealType(mealType: String): String {
-  return when (mealType.trim().lowercase(Locale.ROOT)) {
-    "lunch" -> "lunch"
-    "dinner" -> "dinner"
-    "snack", "snacks" -> "snack"
-    else -> "breakfast"
-  }
-}
-
-fun defaultMealTypeForHour(hour: Int): String {
-  return when (hour) {
-    in 4..10 -> "breakfast"
-    in 11..15 -> "lunch"
-    in 16..18 -> "snack"
-    else -> "dinner"
-  }
-}
-
-fun formatMealDisplayName(mealType: String): String {
-  return when (mealType.trim().lowercase(Locale.ROOT)) {
-    "breakfast" -> "Breakfast"
-    "lunch" -> "Lunch"
-    "dinner" -> "Dinner"
-    "snack", "snacks" -> "Snacks"
-    else -> "Meal"
-  }
-}
-
-data class FoodDetailsUiState(
+data class RecipeDetailsUiState(
   val isLoading: Boolean = true,
-  val food: FoodEntity? = null,
+  val recipe: RecipeEntity? = null,
+  val ingredients: List<RecipeIngredientWithFood> = emptyList(),
   val selectedMealType: String = "breakfast",
   val quantityInput: String = "100",
   val quantityGrams: Double? = 100.0,
@@ -71,27 +49,27 @@ data class FoodDetailsUiState(
     get() = if (isEditMode) "Save Changes" else "Add to $destinationMealDisplayName"
 }
 
-class FoodDetailsViewModel(
-  val foodId: Long,
+class RecipeDetailsViewModel(
+  val recipeId: Long,
   val initialMealType: String = "",
   val mealEntryId: Long = 0L,
-  private val foodDao: FoodDao,
+  private val recipeDao: RecipeDao,
   private val mealEntryDao: MealEntryDao,
   private val dateProvider: () -> LocalDate = { LocalDate.now() },
   private val timeProvider: () -> LocalTime = { LocalTime.now() },
 ) : ViewModel() {
 
   private val _uiState = MutableStateFlow(
-    FoodDetailsUiState(
+    RecipeDetailsUiState(
       isLoading = true,
       selectedMealType = resolveInitialMealType(initialMealType),
       isEditMode = mealEntryId > 0L,
     )
   )
-  val uiState: StateFlow<FoodDetailsUiState> = _uiState.asStateFlow()
+  val uiState: StateFlow<RecipeDetailsUiState> = _uiState.asStateFlow()
 
   init {
-    loadFood()
+    loadRecipe()
   }
 
   private fun resolveInitialMealType(rawMealType: String): String {
@@ -102,32 +80,35 @@ class FoodDetailsViewModel(
     }
   }
 
-  fun loadFood() {
+  fun loadRecipe() {
     viewModelScope.launch {
       _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
       if (mealEntryId > 0L) {
         val existingEntry = mealEntryDao.getEntryById(mealEntryId)
         if (existingEntry != null) {
-          val targetFoodId = if (foodId > 0L) foodId else existingEntry.foodId
-          val foundFood = foodDao.getById(targetFoodId)
-          if (foundFood != null) {
+          val targetRecipeId = if (recipeId > 0L) recipeId else (existingEntry.recipeId ?: 0L)
+          val foundRecipe = recipeDao.getRecipeById(targetRecipeId)
+          if (foundRecipe != null) {
+            val ingredients = recipeDao.getIngredientsWithFood(targetRecipeId).first()
             val nutrition = NutritionCalculator.calculate(
               quantityGrams = existingEntry.quantityGrams,
-              caloriesPer100g = foundFood.caloriesPer100g,
-              proteinPer100g = foundFood.proteinPer100g,
-              carbsPer100g = foundFood.carbsPer100g,
-              fatPer100g = foundFood.fatPer100g,
+              caloriesPer100g = foundRecipe.caloriesPer100g,
+              proteinPer100g = foundRecipe.proteinPer100g,
+              carbsPer100g = foundRecipe.carbsPer100g,
+              fatPer100g = foundRecipe.fatPer100g,
             )
             val qtyText = if (existingEntry.quantityGrams % 1.0 == 0.0) {
               "${existingEntry.quantityGrams.toInt()}"
             } else {
               String.format(Locale.US, "%.1f", existingEntry.quantityGrams)
             }
+
             _uiState.update {
               it.copy(
                 isLoading = false,
-                food = foundFood,
+                recipe = foundRecipe,
+                ingredients = ingredients,
                 selectedMealType = existingEntry.mealType,
                 quantityInput = qtyText,
                 quantityGrams = existingEntry.quantityGrams,
@@ -146,21 +127,25 @@ class FoodDetailsViewModel(
         }
       }
 
-      val foundFood = foodDao.getById(foodId)
-      if (foundFood != null) {
+      val foundRecipe = recipeDao.getRecipeById(recipeId)
+      if (foundRecipe != null) {
+        val ingredients = recipeDao.getIngredientsWithFood(recipeId).first()
+        val defaultGrams = 100.0
         val initialNutrition = NutritionCalculator.calculate(
-          quantityGrams = 100.0,
-          caloriesPer100g = foundFood.caloriesPer100g,
-          proteinPer100g = foundFood.proteinPer100g,
-          carbsPer100g = foundFood.carbsPer100g,
-          fatPer100g = foundFood.fatPer100g,
+          quantityGrams = defaultGrams,
+          caloriesPer100g = foundRecipe.caloriesPer100g,
+          proteinPer100g = foundRecipe.proteinPer100g,
+          carbsPer100g = foundRecipe.carbsPer100g,
+          fatPer100g = foundRecipe.fatPer100g,
         )
+
         _uiState.update {
           it.copy(
             isLoading = false,
-            food = foundFood,
+            recipe = foundRecipe,
+            ingredients = ingredients,
             quantityInput = "100",
-            quantityGrams = 100.0,
+            quantityGrams = defaultGrams,
             isValidQuantity = true,
             quantityErrorMessage = null,
             calculatedCalories = initialNutrition.calories,
@@ -174,7 +159,7 @@ class FoodDetailsViewModel(
         _uiState.update {
           it.copy(
             isLoading = false,
-            errorMessage = "Food item not found in catalogue.",
+            errorMessage = "Recipe not found.",
           )
         }
       }
@@ -183,7 +168,7 @@ class FoodDetailsViewModel(
 
   fun onQuantityChanged(input: String) {
     val trimmed = input.trim()
-    val currentFood = _uiState.value.food
+    val currentRecipe = _uiState.value.recipe
 
     if (trimmed.isEmpty()) {
       _uiState.update {
@@ -250,13 +235,13 @@ class FoodDetailsViewModel(
       return
     }
 
-    if (currentFood != null) {
+    if (currentRecipe != null) {
       val nutrition = NutritionCalculator.calculate(
         quantityGrams = parsed,
-        caloriesPer100g = currentFood.caloriesPer100g,
-        proteinPer100g = currentFood.proteinPer100g,
-        carbsPer100g = currentFood.carbsPer100g,
-        fatPer100g = currentFood.fatPer100g,
+        caloriesPer100g = currentRecipe.caloriesPer100g,
+        proteinPer100g = currentRecipe.proteinPer100g,
+        carbsPer100g = currentRecipe.carbsPer100g,
+        fatPer100g = currentRecipe.fatPer100g,
       )
       _uiState.update {
         it.copy(
@@ -307,7 +292,7 @@ class FoodDetailsViewModel(
 
   fun logMeal(onSuccess: () -> Unit) {
     val state = _uiState.value
-    val currentFood = state.food ?: return
+    val currentRecipe = state.recipe ?: return
     val grams = state.quantityGrams ?: return
     if (grams <= 0.0 || state.isSaving) return
 
@@ -316,10 +301,10 @@ class FoodDetailsViewModel(
       try {
         val nutrition = NutritionCalculator.calculate(
           quantityGrams = grams,
-          caloriesPer100g = currentFood.caloriesPer100g,
-          proteinPer100g = currentFood.proteinPer100g,
-          carbsPer100g = currentFood.carbsPer100g,
-          fatPer100g = currentFood.fatPer100g,
+          caloriesPer100g = currentRecipe.caloriesPer100g,
+          proteinPer100g = currentRecipe.proteinPer100g,
+          carbsPer100g = currentRecipe.carbsPer100g,
+          fatPer100g = currentRecipe.fatPer100g,
         )
         if (mealEntryId > 0L) {
           val entryDate = state.existingEntryDate.ifBlank {
@@ -329,26 +314,28 @@ class FoodDetailsViewModel(
             id = mealEntryId,
             date = entryDate,
             mealType = normalizeMealType(state.selectedMealType),
-            foodId = currentFood.id,
+            foodId = 0L,
             quantityGrams = grams,
             calories = nutrition.calories,
             protein = nutrition.protein,
             carbs = nutrition.carbs,
             fat = nutrition.fat,
-            entryName = currentFood.name,
+            recipeId = currentRecipe.id,
+            entryName = currentRecipe.name,
           )
           mealEntryDao.update(updatedEntry)
         } else {
           val entry = MealEntryEntity(
             date = dateProvider().format(DateTimeFormatter.ISO_LOCAL_DATE),
             mealType = normalizeMealType(state.selectedMealType),
-            foodId = currentFood.id,
+            foodId = 0L,
             quantityGrams = grams,
             calories = nutrition.calories,
             protein = nutrition.protein,
             carbs = nutrition.carbs,
             fat = nutrition.fat,
-            entryName = currentFood.name,
+            recipeId = currentRecipe.id,
+            entryName = currentRecipe.name,
           )
           mealEntryDao.insert(entry)
         }
@@ -360,23 +347,37 @@ class FoodDetailsViewModel(
     }
   }
 
+  fun archiveRecipe(onSuccess: () -> Unit) {
+    val id = _uiState.value.recipe?.id ?: recipeId
+    if (id <= 0L) return
+
+    viewModelScope.launch {
+      try {
+        recipeDao.archiveRecipe(id)
+        onSuccess()
+      } catch (e: Exception) {
+        _uiState.update { it.copy(errorMessage = e.message ?: "Failed to delete recipe.") }
+      }
+    }
+  }
+
   class Factory(
-    private val foodId: Long,
-    private val initialMealType: String,
+    private val recipeId: Long,
+    private val initialMealType: String = "",
     private val mealEntryId: Long = 0L,
-    private val foodDao: FoodDao,
+    private val recipeDao: RecipeDao,
     private val mealEntryDao: MealEntryDao,
     private val dateProvider: () -> LocalDate = { LocalDate.now() },
     private val timeProvider: () -> LocalTime = { LocalTime.now() },
   ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-      if (modelClass.isAssignableFrom(FoodDetailsViewModel::class.java)) {
-        return FoodDetailsViewModel(
-          foodId = foodId,
+      if (modelClass.isAssignableFrom(RecipeDetailsViewModel::class.java)) {
+        return RecipeDetailsViewModel(
+          recipeId = recipeId,
           initialMealType = initialMealType,
           mealEntryId = mealEntryId,
-          foodDao = foodDao,
+          recipeDao = recipeDao,
           mealEntryDao = mealEntryDao,
           dateProvider = dateProvider,
           timeProvider = timeProvider,

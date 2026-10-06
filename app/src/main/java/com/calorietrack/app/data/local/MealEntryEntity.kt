@@ -15,6 +15,7 @@ import androidx.room.PrimaryKey
     Index(value = ["date"]),
     Index(value = ["meal_type"]),
     Index(value = ["food_id"]),
+    Index(value = ["recipe_id"]),
   ]
 )
 data class MealEntryEntity(
@@ -30,7 +31,7 @@ data class MealEntryEntity(
   val mealType: String,
 
   @ColumnInfo(name = "food_id")
-  val foodId: Long,
+  val foodId: Long = 0L,
 
   @ColumnInfo(name = "quantity_grams")
   val quantityGrams: Double,
@@ -46,4 +47,15 @@ data class MealEntryEntity(
 
   @ColumnInfo(name = "fat")
   val fat: Double,
-)
+
+  /** Optional reference to a RecipeEntity if this meal entry represents a prepared recipe */
+  @ColumnInfo(name = "recipe_id")
+  val recipeId: Long? = null,
+
+  /** Snapshot of food or recipe name at the moment of logging */
+  @ColumnInfo(name = "entry_name")
+  val entryName: String? = null,
+) {
+  val isRecipe: Boolean
+    get() = recipeId != null && recipeId > 0L
+}
