@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +30,8 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.calorietrack.app.data.local.CalorieTrackDatabase
+import com.calorietrack.app.data.preferences.SharedPreferencesUserPreferencesRepository
+import com.calorietrack.app.data.preferences.UserPreferencesRepository
 import com.calorietrack.app.ui.custom.CustomFoodScreen
 import com.calorietrack.app.ui.custom.CustomFoodViewModel
 import com.calorietrack.app.ui.details.FoodDetailsScreen
@@ -41,6 +44,7 @@ import com.calorietrack.app.ui.main.MainScreen
 import com.calorietrack.app.ui.main.MainScreenViewModel
 import com.calorietrack.app.ui.meal.MealDetailsScreen
 import com.calorietrack.app.ui.meal.MealDetailsViewModel
+import com.calorietrack.app.ui.onboarding.OnboardingScreen
 import com.calorietrack.app.ui.recipe.RecipeBuilderScreen
 import com.calorietrack.app.ui.recipe.RecipeBuilderViewModel
 import com.calorietrack.app.ui.recipe.RecipeDetailsScreen
@@ -51,15 +55,35 @@ import com.calorietrack.app.ui.settings.SettingsScreen
 import com.calorietrack.app.ui.settings.SettingsViewModel
 
 @Composable
-fun MainNavigation() {
-  val backStack = rememberNavBackStack(Main)
+fun MainNavigation(
+  userPreferencesRepository: UserPreferencesRepository? = null,
+) {
+  val context = LocalContext.current
+  val prefs = remember(userPreferencesRepository, context) {
+    userPreferencesRepository ?: SharedPreferencesUserPreferencesRepository(context)
+  }
+  val initialKey = remember {
+    if (prefs.isOnboardingCompleted()) Main else OnboardingNavKey
+  }
+  val backStack = rememberNavBackStack(initialKey)
 
   NavDisplay(
     backStack = backStack,
     onBack = { backStack.removeLastOrNull() },
     entryProvider =
       entryProvider {
+        entry<OnboardingNavKey> {
+          OnboardingScreen(
+            onGetStarted = {
+              prefs.setOnboardingCompleted(true)
+              backStack.add(Main)
+              backStack.remove(OnboardingNavKey)
+            },
+            modifier = Modifier.safeDrawingPadding(),
+          )
+        }
         entry<Main> {
+
           val context = LocalContext.current
           val db = CalorieTrackDatabase.getInstance(context)
           val mainViewModel: MainScreenViewModel =

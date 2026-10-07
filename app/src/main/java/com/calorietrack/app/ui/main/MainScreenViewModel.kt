@@ -10,11 +10,13 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 
@@ -82,94 +84,110 @@ fun formatDateText(date: LocalDate): String {
 class MainScreenViewModel(
   private val mealEntryDao: MealEntryDao? = null,
   private val dailyGoalDao: DailyGoalDao? = null,
-  timeProvider: () -> LocalTime = { LocalTime.now() },
-  dateProvider: () -> LocalDate = { LocalDate.now() },
+  private val timeProvider: () -> LocalTime = { LocalTime.now() },
+  private val dateProvider: () -> LocalDate = { LocalDate.now() },
 ) : ViewModel() {
 
-  private val initialGreeting = calculateGreeting(timeProvider().hour)
-  private val initialDate = dateProvider()
-  private val initialDateText = formatDateText(initialDate)
-  private val todayIso = initialDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+  private val currentDateFlow = MutableStateFlow(dateProvider())
 
+  fun refreshDate() {
+    val newDate = dateProvider()
+    if (newDate != currentDateFlow.value) {
+      currentDateFlow.value = newDate
+    }
+  }
+
+  @OptIn(ExperimentalCoroutinesApi::class)
   val uiState: StateFlow<DashboardUiState> =
     if (mealEntryDao == null) {
+      val initialDate = dateProvider()
       MutableStateFlow(
         DashboardUiState(
-          greeting = initialGreeting,
-          dateText = initialDateText,
+          greeting = calculateGreeting(timeProvider().hour),
+          dateText = formatDateText(initialDate),
           consumedCalories = 0,
           targetCalories = 2000,
           isEmptyDay = true,
         )
       ).asStateFlow()
     } else {
-      combine(
-        mealEntryDao.getEntriesWithFoodForDate(todayIso),
-        mealEntryDao.observeDailyTotals(todayIso),
-        dailyGoalDao?.observeForDate(todayIso) ?: flowOf(null),
-      ) { entries, totals, goal ->
-        val targetCalories = goal?.calorieGoal?.roundToInt() ?: 2000
-        val targetProtein = goal?.proteinGoal?.roundToInt() ?: 140
-        val targetCarbs = goal?.carbsGoal?.roundToInt() ?: 250
-        val targetFat = goal?.fatGoal?.roundToInt() ?: 70
+      currentDateFlow.flatMapLatest { currentDate ->
+        val dateIso = currentDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val dateText = formatDateText(currentDate)
+        val greeting = calculateGreeting(timeProvider().hour)
 
-        val consumedCalories = totals.totalCalories.roundToInt()
-        val consumedProtein = totals.totalProtein.roundToInt()
-        val consumedCarbs = totals.totalCarbs.roundToInt()
-        val consumedFat = totals.totalFat.roundToInt()
+        combine(
+          mealEntryDao.getEntriesWithFoodForDate(dateIso),
+          mealEntryDao.observeDailyTotals(dateIso),
+          dailyGoalDao?.observeForDate(dateIso) ?: flowOf(null),
+        ) { entries, totals, goal ->
+          val targetCalories = goal?.calorieGoal?.roundToInt() ?: 2000
+          val targetProtein = goal?.proteinGoal?.roundToInt() ?: 140
+          val targetCarbs = goal?.carbsGoal?.roundToInt() ?: 250
+          val targetFat = goal?.fatGoal?.roundToInt() ?: 70
 
-        val mealDefinitions = listOf(
-          "breakfast" to "Breakfast",
-          "lunch" to "Lunch",
-          "dinner" to "Dinner",
-          "snack" to "Snacks",
-        )
+          val consumedCalories = totals.totalCalories.roundToInt()
+          val consumedProtein = totals.totalProtein.roundToInt()
+          val consumedCarbs = totals.totalCarbs.roundToInt()
+          val consumedFat = totals.totalFat.roundToInt()
 
-        val mealSections = mealDefinitions.map { (key, displayName) ->
-          val matchingEntries = entries.filter {
-            val normalized = it.mealType.trim().lowercase(Locale.ROOT)
-            normalized == key || (key == "snack" && normalized == "snacks")
-          }
-          val items = matchingEntries.map { entry ->
-            LoggedFoodItem(
-              id = entry.id,
-              foodId = entry.foodId,
-              name = entry.foodName,
-              quantityGrams = entry.quantityGrams,
-              calories = entry.calories.roundToInt(),
+          val mealDefinitions = listOf(
+            "breakfast" to "Breakfast",
+            "lunch" to "Lunch",
+            "dinner" to "Dinner",
+            "snack" to "Snacks",
+          )
+
+          val mealSections = mealDefinitions.map { (key, displayName) ->
+            val matchingEntries = entries.filter {
+              val normalized = it.mealType.trim().lowercase(Locale.ROOT)
+              normalized == key || (key == "snack" && normalized == "snacks")
+            }
+            val items = matchingEntries.map { entry ->
+              LoggedFoodItem(
+                id = entry.id,
+                foodId = entry.foodId,
+                name = entry.foodName,
+                quantityGrams = entry.quantityGrams,
+                calories = entry.calories.roundToInt(),
+              )
+            }
+            MealSection(
+              key = key,
+              displayName = displayName,
+              consumedCalories = items.sumOf { it.calories },
+              items = items,
             )
           }
-          MealSection(
-            key = key,
-            displayName = displayName,
-            consumedCalories = items.sumOf { it.calories },
-            items = items,
+
+          DashboardUiState(
+            greeting = greeting,
+            dateText = dateText,
+            consumedCalories = consumedCalories,
+            targetCalories = targetCalories,
+            protein = MacroInfo("Protein", consumedProtein, targetProtein),
+            carbs = MacroInfo("Carbs", consumedCarbs, targetCarbs),
+            fat = MacroInfo("Fat", consumedFat, targetFat),
+            meals = mealSections,
+            isEmptyDay = entries.isEmpty(),
           )
         }
-
-        DashboardUiState(
-          greeting = initialGreeting,
-          dateText = initialDateText,
-          consumedCalories = consumedCalories,
-          targetCalories = targetCalories,
-          protein = MacroInfo("Protein", consumedProtein, targetProtein),
-          carbs = MacroInfo("Carbs", consumedCarbs, targetCarbs),
-          fat = MacroInfo("Fat", consumedFat, targetFat),
-          meals = mealSections,
-          isEmptyDay = entries.isEmpty(),
-        )
       }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = DashboardUiState(
-          greeting = initialGreeting,
-          dateText = initialDateText,
-          consumedCalories = 0,
-          targetCalories = 2000,
-          isEmptyDay = true,
-        ),
+        initialValue = run {
+          val initialDate = dateProvider()
+          DashboardUiState(
+            greeting = calculateGreeting(timeProvider().hour),
+            dateText = formatDateText(initialDate),
+            consumedCalories = 0,
+            targetCalories = 2000,
+            isEmptyDay = true,
+          )
+        },
       )
     }
+
 
   class Factory(
     private val mealEntryDao: MealEntryDao,

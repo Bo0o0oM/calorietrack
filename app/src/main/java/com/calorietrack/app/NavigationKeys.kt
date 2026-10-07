@@ -3,6 +3,9 @@ package com.calorietrack.app
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
+/** Onboarding / Welcome screen destination for first-time launch */
+@Serializable data object OnboardingNavKey : NavKey
+
 /** Root Dashboard / Home destination */
 @Serializable data object Main : NavKey
 

@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calorietrack.app.R
 import com.calorietrack.app.theme.CalorieAccentColor
@@ -478,9 +480,88 @@ fun SettingsContent(
         }
       }
 
+      Spacer(modifier = Modifier.height(8.dp))
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+      Spacer(modifier = Modifier.height(8.dp))
+
+      // Section: About & Privacy
+      Text(
+        text = "About & Privacy",
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onBackground,
+      )
+
+      ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+      ) {
+        Column(
+          modifier = Modifier.fillMaxWidth().padding(16.dp),
+          verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Column {
+              Text(
+                text = "CalorieTrack",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+              )
+              Text(
+                text = "Offline-first nutrition tracking.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+              Text(
+                text = "v1.0",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+              )
+            }
+          }
+
+          HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+          AboutPrivacyItem(
+            title = "100% Offline by Design",
+            description = "Operates completely on your device without internet access. No external network requests are made.",
+          )
+
+          AboutPrivacyItem(
+            title = "No Accounts or Cloud Storage",
+            description = "No logins, registration, or cloud servers. Your personal health and meal records are never sent over the internet.",
+          )
+
+          AboutPrivacyItem(
+            title = "Local SQLite Storage",
+            description = "All food entries, custom foods, recipes, and daily targets are stored locally on your device in a sandboxed SQLite database.",
+          )
+
+          AboutPrivacyItem(
+            title = "Explicit Data Ownership",
+            description = "Your data never leaves this device unless you choose to create a file export via the Data & Backup section above.",
+          )
+        }
+      }
+
       Spacer(modifier = Modifier.height(28.dp))
     }
   }
+
 
   // Strong Confirmation Dialog for Restore
   if (state.showRestoreConfirmDialog) {
@@ -569,5 +650,30 @@ private fun GoalInputField(
         modifier = Modifier.padding(start = 4.dp),
       )
     }
+  }
+}
+
+@Composable
+private fun AboutPrivacyItem(
+  title: String,
+  description: String,
+  modifier: Modifier = Modifier,
+) {
+  Column(
+    modifier = modifier.fillMaxWidth(),
+    verticalArrangement = Arrangement.spacedBy(2.dp),
+  ) {
+    Text(
+      text = title,
+      style = MaterialTheme.typography.titleSmall,
+      fontWeight = FontWeight.SemiBold,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    Text(
+      text = description,
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      lineHeight = 18.sp,
+    )
   }
 }

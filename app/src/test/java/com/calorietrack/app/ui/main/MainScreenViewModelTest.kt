@@ -593,4 +593,77 @@ class MainScreenViewModelTest {
     assertEquals(0, dinner.consumedCalories)
     assertTrue(dinner.items.isEmpty())
   }
+
+  @Test
+  fun uiState_dateRollover_switchesToNewDateAndUpdatesQueries() = runTest {
+    var currentDate = LocalDate.of(2026, 10, 3)
+    val day1Iso = "2026-10-03"
+    val day2Iso = "2026-10-04"
+
+    val day1Entry = MealEntryWithFood(
+      id = 1L,
+      date = day1Iso,
+      mealType = "breakfast",
+      foodId = 10L,
+      quantityGrams = 100.0,
+      calories = 400.0,
+      protein = 25.0,
+      carbs = 40.0,
+      fat = 10.0,
+      foodName = "Day 1 Breakfast",
+    )
+    val day2Entry = MealEntryWithFood(
+      id = 2L,
+      date = day2Iso,
+      mealType = "breakfast",
+      foodId = 20L,
+      quantityGrams = 50.0,
+      calories = 150.0,
+      protein = 10.0,
+      carbs = 15.0,
+      fat = 4.0,
+      foodName = "Day 2 Breakfast",
+    )
+
+    val fakeDao = object : FakeMealEntryDao() {
+      override fun observeDailyTotals(date: String): Flow<DailyNutritionTotals> =
+        if (date == day1Iso) {
+          flowOf(DailyNutritionTotals(400.0, 25.0, 40.0, 10.0))
+        } else {
+          flowOf(DailyNutritionTotals(150.0, 10.0, 15.0, 4.0))
+        }
+
+      override fun getEntriesWithFoodForDate(date: String): Flow<List<MealEntryWithFood>> =
+        if (date == day1Iso) {
+          flowOf(listOf(day1Entry))
+        } else {
+          flowOf(listOf(day2Entry))
+        }
+    }
+
+    val viewModel = MainScreenViewModel(
+      mealEntryDao = fakeDao,
+      dailyGoalDao = null,
+      dateProvider = { currentDate },
+    )
+
+    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+      viewModel.uiState.collect()
+    }
+    advanceUntilIdle()
+
+    // Day 1 state
+    assertEquals(400, viewModel.uiState.value.consumedCalories)
+    assertEquals("Day 1 Breakfast", viewModel.uiState.value.meals.first { it.key == "breakfast" }.items[0].name)
+
+    // Midnight rollover occurs
+    currentDate = LocalDate.of(2026, 10, 4)
+    viewModel.refreshDate()
+    advanceUntilIdle()
+
+    // Day 2 state
+    assertEquals(150, viewModel.uiState.value.consumedCalories)
+    assertEquals(1850, viewModel.uiState.value.remainingCalories)
+    assertEquals("Day 2 Breakfast", viewModel.uiState.value.meals.first { it.key == "breakfast" }.items[0].name)
+  }
 }

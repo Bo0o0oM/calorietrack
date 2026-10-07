@@ -158,3 +158,15 @@ This roadmap breaks development into small, incremental, self-contained mileston
   3. Verify clean operation on lower-end devices (memory usage, CPU footprint).
   4. Final automated CI test pass on GitHub Actions.
 - **Verification**: Flawless, crash-free performance in Airplane Mode across multiple physical test devices.
+
+---
+
+## Milestone 2L: MVP Hardening & First-Run Experience (Completed)
+- **Goal**: Consolidate and polish all features into a cohesive, production-grade offline MVP.
+- **Completed Deliverables**:
+  1. **First-Run Experience**: Lightweight `OnboardingScreen` persisted locally via native `SharedPreferences` without heavyweight dependencies. Shows app title, tagline, 3 benefit cards ("Works Offline", "500+ Foods & Custom Recipes", "Your Data Stays Yours"), privacy pill, and "Get Started" CTA. Returning users bypass onboarding directly to Dashboard. Backstack replacement ensures pressing back from Dashboard does not return to onboarding.
+  2. **Dashboard Hardening**: Verified 48dp minimum touch targets, accessible content descriptions, FAB scroll clearance, empty states, and layout truncation handling.
+  3. **Date Rollover Correctness**: Integrated lifecycle resume observer and reactive `currentDateFlow` flatMapLatest so date changes and midnight rollovers immediately switch queries and isolate historical days.
+  4. **Input Hardening**: Re-verified strict numerical validation across custom food, recipe builder, food details, recipe details, and settings goal inputs (handling blanks, non-numbers, negative numbers, 0, and large limits).
+  5. **Product Identity & About**: Added dedicated "About & Privacy" card in Settings displaying app name, tagline, version 1.0 (MVP), and honest offline-first privacy guarantees (100% offline, no accounts, local SQLite, user-controlled backup exports).
+  6. **Quality Assurance**: 151 unit tests passing, `assembleDebug` clean build, zero git diff whitespace warnings.
