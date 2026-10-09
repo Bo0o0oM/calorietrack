@@ -170,3 +170,18 @@ This roadmap breaks development into small, incremental, self-contained mileston
   4. **Input Hardening**: Re-verified strict numerical validation across custom food, recipe builder, food details, recipe details, and settings goal inputs (handling blanks, non-numbers, negative numbers, 0, and large limits).
   5. **Product Identity & About**: Added dedicated "About & Privacy" card in Settings displaying app name, tagline, version 1.0 (MVP), and honest offline-first privacy guarantees (100% offline, no accounts, local SQLite, user-controlled backup exports).
   6. **Quality Assurance**: 151 unit tests passing, `assembleDebug` clean build, zero git diff whitespace warnings.
+
+---
+
+## Milestone 3A: Release Readiness & Play Store Preparation (Completed Readiness / Pre-Launch)
+- **Goal**: Prepare production-grade build configuration, release bundle artifacts, signing infrastructure, and Play Store submission documentation.
+- **Completed Deliverables**:
+  1. [x] **SDK Verification**: Verified `compileSdk = 36` and `targetSdk = 36` (Android 16), satisfying Google Play's latest requirements.
+  2. [x] **Version Standardization**: Set `versionCode = 1` and `versionName = "1.0.0"` in `app/build.gradle.kts` and in Settings About display.
+  3. [x] **Release Signing Architecture**: Created non-intrusive release signing configuration supporting local and CI environments via environment variables without hardcoded secrets. Kept `.gitignore` strictly enforced.
+  4. [x] **Android App Bundle Generation**: Verified `./gradlew bundleRelease` producing valid `app-release.aab` artifact (8.4 MB) while preserving `./gradlew assembleDebug` for testing.
+  5. [x] **App Icon & Branding**: Replaced default Android assets with CalorieTrack custom vector adaptive icon (rich green background, nutrition emblem, monochrome themed icon).
+  6. [x] **Manifest & Security Audit**: Audited permissions (zero network permissions, 100% offline), exported components, and Android 12+ backup configuration rules.
+  7. [x] **GitHub Actions Release Pipeline**: Added `.github/workflows/android-release.yml` with secure secret decoding and unsigned fallback verification.
+  8. [x] **Store Documentation**: Authored `docs/google-play-data-safety-notes.md`, `docs/privacy-policy-draft.md`, and `docs/google-play-release-checklist.md` with closed testing guidance (12 testers / 14 days).
+  9. [ ] *Google Play Console Publication* (Pending user-initiated Play Console setup and closed testing).

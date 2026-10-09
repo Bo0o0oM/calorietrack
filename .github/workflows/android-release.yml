@@ -1,0 +1,80 @@
+name: Android Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      sign_release:
+        description: 'Attempt release signing if secrets are present'
+        required: false
+        type: boolean
+        default: true
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build Release AAB Bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.1.0'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Release Bundle (with signing if secrets configured)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.CALORIETRACK_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.CALORIETRACK_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.CALORIETRACK_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.CALORIETRACK_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Signing secrets detected. Decoding keystore..."
+            KEYSTORE_PATH="${{ runner.temp }}/release.keystore"
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            
+            export CALORIETRACK_KEYSTORE_FILE="$KEYSTORE_PATH"
+            export CALORIETRACK_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"
+            export CALORIETRACK_KEY_ALIAS="$KEY_ALIAS"
+            export CALORIETRACK_KEY_PASSWORD="$KEY_PASSWORD"
+            
+            ./gradlew bundleRelease --no-daemon
+            
+            # Securely wipe keystore from runner disk
+            shred -u "$KEYSTORE_PATH" || rm -f "$KEYSTORE_PATH"
+            echo "Release bundle signed and temporary keystore wiped."
+          else
+            echo "No keystore secrets configured. Building unsigned release bundle for verification..."
+            ./gradlew bundleRelease --no-daemon
+          fi
+
+      - name: Upload Release AAB Bundle Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: calorietrack-release-bundle
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

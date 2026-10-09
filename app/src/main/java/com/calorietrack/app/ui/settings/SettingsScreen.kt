@@ -525,7 +525,7 @@ fun SettingsContent(
               color = MaterialTheme.colorScheme.primaryContainer,
             ) {
               Text(
-                text = "v1.0",
+                text = "v1.0.0",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -553,7 +553,7 @@ fun SettingsContent(
 
           AboutPrivacyItem(
             title = "Explicit Data Ownership",
-            description = "Your data never leaves this device unless you choose to create a file export via the Data & Backup section above.",
+            description = "Your data stays on your device and is not collected by us. You can export JSON backups anytime, and standard Android device backup applies if enabled in system settings.",
           )
         }
       }

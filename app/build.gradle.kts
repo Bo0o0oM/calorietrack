@@ -13,13 +13,33 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystoreFile = project.findProperty("CALORIETRACK_KEYSTORE_FILE") as String?
+                ?: System.getenv("CALORIETRACK_KEYSTORE_FILE")
+            if (keystoreFile != null && file(keystoreFile).exists()) {
+                storeFile = file(keystoreFile)
+                storePassword = project.findProperty("CALORIETRACK_KEYSTORE_PASSWORD") as String?
+                    ?: System.getenv("CALORIETRACK_KEYSTORE_PASSWORD")
+                keyAlias = project.findProperty("CALORIETRACK_KEY_ALIAS") as String?
+                    ?: System.getenv("CALORIETRACK_KEY_ALIAS")
+                keyPassword = project.findProperty("CALORIETRACK_KEY_PASSWORD") as String?
+                    ?: System.getenv("CALORIETRACK_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists()) {
+                signingConfig = releaseSigning
+            }
         }
     }
     compileOptions {

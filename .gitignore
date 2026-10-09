@@ -35,5 +35,6 @@ Thumbs.db
 # Secrets / signing files
 *.jks
 *.keystore
+keystore.properties
 .env
 .env.*
